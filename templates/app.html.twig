@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<div class="app-shell">
+    <div class="bg-aurora"></div>
+
+    {% include 'partials/_header.html.twig' %}
+
+    <div class="content">
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="flash flash-{{ label }}" data-flash>{{ message }}</div>
+            {% endfor %}
+        {% endfor %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    {% block fab %}{% endblock %}
+</div>
+{% endblock %}

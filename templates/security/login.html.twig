@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion · Homely{% endblock %}
+
+{% block body %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        <h1 class="display">Content de te revoir</h1>
+        <p class="auth-sub">Connecte-toi à ton foyer Homely.</p>
+
+        {% if error %}
+            <div class="auth-error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        {% for message in app.flashes('success') %}
+            <div class="auth-success">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post" action="{{ path('app_login') }}" class="auth-form">
+            <label>Email
+                <input type="email" name="_username" value="{{ last_username }}" required autofocus autocomplete="email">
+            </label>
+            <label>Mot de passe
+                <input type="password" name="_password" required autocomplete="current-password">
+            </label>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+            <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+        </form>
+
+        <p class="auth-switch">Pas encore de compte ? <a href="{{ path('app_register') }}">Créer ou rejoindre un foyer</a></p>
+    </div>
+</div>
+{% endblock %}

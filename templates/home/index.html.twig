@@ -1,0 +1,75 @@
+{% extends 'app.html.twig' %}
+
+{% block title %}Homely{% endblock %}
+
+{% block content %}
+<div class="summary-card">
+    <div class="summary-eyebrow">Aujourd'hui</div>
+    <div class="summary-label">{{ summaryLabel }}</div>
+    <div class="summary-sub">{{ summarySub }}</div>
+</div>
+
+{% if rooms|length == 0 %}
+    <p class="empty-state">Aucune pièce pour l'instant.<br>Appuie sur + pour en créer une.</p>
+{% else %}
+    <div class="room-grid">
+        {% for room in rooms %}
+            <a href="{{ path('app_room_show', {id: room.id}) }}" class="room-tile" style="--room-color: {{ room.color }}">
+                <span class="status-pip {{ room.status }}"></span>
+                <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.name)} %}</span>
+                <span>
+                    <span class="tile-name">{{ room.name }}</span><br>
+                    <span class="tile-meta">{{ room.taskCount }} tâche{{ room.taskCount > 1 ? 's' : '' }}{% if room.overdueCount > 0 %} · {{ room.overdueCount }} en retard{% elseif room.dueSoonCount > 0 %} · {{ room.dueSoonCount }} bientôt{% endif %}</span>
+                </span>
+            </a>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block fab %}
+<button type="button" class="fab" data-open-modal="roomModal" aria-label="Ajouter une pièce">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<dialog id="roomModal" class="sheet-dialog">
+    <form method="post" action="{{ path('app_room_create') }}" class="sheet">
+        <div class="sheet-handle"></div>
+        <h2>Nouvelle pièce</h2>
+        <div class="sheet-field">
+            <span id="roomTypeLabel">Suggestions</span>
+            {# Menu maison plutôt qu'un <select> natif : le popup natif du <select>
+               ne suit pas notre thème sombre sur Windows/Chrome (fond blanc,
+               texte illisible), et color-scheme ne suffit pas à le corriger.
+               Div (pas <label>) volontaire : un <label> qui englobe un widget
+               composite (bouton + listbox) fait que Chrome/Firefox renvoient
+               un clic fantôme au bouton après tout clic interne (comportement
+               natif de forward-to-control des <label>), ce qui rouvrait la
+               liste juste après sa fermeture -> l'app semblait ignorer le clic. #}
+            <div class="custom-select" data-room-catalog>
+                <button type="button" class="custom-select-trigger" data-custom-select-trigger aria-haspopup="listbox" aria-expanded="false" aria-labelledby="roomTypeLabel">
+                    <span data-custom-select-label>— Choisir un type de pièce (optionnel) —</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <ul class="custom-select-list" role="listbox" data-custom-select-list hidden>
+                    <li role="option" data-value="" aria-selected="true">— Choisir un type de pièce (optionnel) —</li>
+                    {% for item in roomCatalog %}
+                        <li role="option" data-value="{{ item.name }}" data-color="{{ item.color }}" aria-selected="false">{{ item.name }}{{ item.exterior ? ' (extérieur)' : '' }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <label>Nom
+            <input name="name" id="roomNameInput" required maxlength="80" placeholder="Ex : Bureau">
+        </label>
+        <label>Couleur
+            <input name="color" id="roomColorInput" type="color" value="#8AA9B8">
+        </label>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('add_room') }}">
+        <div class="sheet-actions">
+            <button type="button" class="btn btn-ghost" data-close-modal>Annuler</button>
+            <button type="submit" class="btn btn-primary">Créer</button>
+        </div>
+    </form>
+</dialog>
+{% endblock %}

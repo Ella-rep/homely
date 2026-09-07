@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Créer un compte · Homely{% endblock %}
+
+{% block body %}
+<div class="auth-wrap">
+    <div class="auth-card auth-card-wide">
+        <h1 class="display">Rejoindre Homely</h1>
+        <p class="auth-sub">Crée un foyer ou rejoins celui de ton/ta conjoint(e).</p>
+
+        {% if errors|length %}
+            <div class="auth-error">
+                <ul>
+                    {% for e in errors %}
+                        <li>{{ e }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <div class="tabs">
+            <input type="radio" name="regtab" id="tab-creer" class="tab-input" {{ mode != 'rejoindre' ? 'checked' : '' }}>
+            <input type="radio" name="regtab" id="tab-rejoindre" class="tab-input" {{ mode == 'rejoindre' ? 'checked' : '' }}>
+
+            <div class="tab-labels">
+                <label for="tab-creer" class="tab-label">Créer un foyer</label>
+                <label for="tab-rejoindre" class="tab-label">Rejoindre un foyer</label>
+            </div>
+
+            <div class="tab-panel tab-panel-creer">
+                <form method="post" action="{{ path('app_register_create_foyer') }}" class="auth-form">
+                    <label>Nom du foyer
+                        <input type="text" name="foyer_name" maxlength="80" required value="{{ values.foyer_name|default('') }}" placeholder="Ex : Chez Elodie & Julien">
+                    </label>
+                    {% include 'security/_register_fields.html.twig' %}
+                    <button type="submit" class="btn btn-primary btn-block">Créer le foyer</button>
+                </form>
+            </div>
+
+            <div class="tab-panel tab-panel-rejoindre">
+                <form method="post" action="{{ path('app_register_join_foyer') }}" class="auth-form">
+                    <label>Code du foyer
+                        <input type="text" name="invite_code" maxlength="8" required value="{{ values.invite_code|default('') }}" placeholder="Ex : 7K3PQR" class="invite-input">
+                    </label>
+                    {% include 'security/_register_fields.html.twig' %}
+                    <button type="submit" class="btn btn-primary btn-block">Rejoindre le foyer</button>
+                </form>
+            </div>
+        </div>
+
+        <p class="auth-switch">Déjà un compte ? <a href="{{ path('app_login') }}">Se connecter</a></p>
+    </div>
+</div>
+{% endblock %}

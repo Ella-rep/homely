@@ -1,0 +1,20 @@
+{% if catalogGroups|length == 0 %}
+    <p class="empty-state">Pas de suggestions pour cette pièce.</p>
+{% else %}
+    {% for roomLabel, groups in catalogGroups %}
+        {% for category, tasks in groups %}
+            <div class="catalog-group">
+                <h3 class="catalog-group-title">{{ roomLabel }} · {{ category }}</h3>
+                <div class="catalog-list">
+                    {% for item in tasks %}
+                        <label class="catalog-item">
+                            <input type="checkbox" name="tasks[]" value="{{ item.name }}|{{ item.frequencyDays }}">
+                            <span class="catalog-item-name">{{ item.name }}</span>
+                            <span class="catalog-item-freq">tous les {{ item.frequencyDays }} j</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% endfor %}
+{% endif %}

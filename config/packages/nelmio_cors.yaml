@@ -1,0 +1,2 @@
+# Non utilisé tant que le frontend est servi par le même serveur (public/index.html + /api/*).
+# Décommenter et installer nelmio/cors-bundle si le frontend est un jour servi séparément (ex: Vite dev server).
