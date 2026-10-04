@@ -21,7 +21,7 @@ services:
       - network1
     environment:
       APP_SECRET: ${APP_SECRET:-change_me_generate_with_openssl_rand_hex_32}
-      DATABASE_HOST: database
+      DATABASE_HOST: db
       DATABASE_PORT: 5432
       DATABASE_USER: ${DATABASE_USER:-homer}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-homer}
