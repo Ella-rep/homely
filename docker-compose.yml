@@ -50,7 +50,7 @@ services:
     networks:
       - network1
     volumes:
-      - ../homely_db:/var/lib/postgresql/data:rw
+      - database_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-homer} -d ${DATABASE_NAME:-homely_db}"]
       interval: 5s

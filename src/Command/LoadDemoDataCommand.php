@@ -4,9 +4,12 @@ namespace App\Command;
 
 use App\Entity\Foyer;
 use App\Entity\Room;
+use App\Entity\RoomTask;
+use App\Entity\RoomType;
 use App\Entity\Task;
 use App\Entity\TaskLog;
 use App\Entity\User;
+use App\Service\RoomCatalog;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -18,7 +21,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[AsCommand(
     name: 'app:load-demo-data',
-    description: 'Vide les tables et recrée des pièces/tâches de démo pour tester le rendu (statuts clean / due_soon / overdue).',
+    description: 'Vide foyers/pièces/tâches planifiées (le catalogue room_type/task est conservé) et recrée des données de démo (statuts clean / due_soon / overdue).',
 )]
 final class LoadDemoDataCommand extends Command
 {
@@ -35,7 +38,7 @@ final class LoadDemoDataCommand extends Command
 
         $connection = $this->entityManager->getConnection();
         $connection->executeStatement('DELETE FROM task_log');
-        $connection->executeStatement('DELETE FROM task');
+        $connection->executeStatement('DELETE FROM room_task');
         $connection->executeStatement('DELETE FROM room');
         $connection->executeStatement('DELETE FROM "user"');
         $connection->executeStatement('DELETE FROM foyer');
@@ -54,58 +57,77 @@ final class LoadDemoDataCommand extends Command
         $user->setPassword($this->passwordHasher->hashPassword($user, 'demodemo'));
         $this->entityManager->persist($user);
 
+        // [type de pièce => [libellé de tâche du catalogue, fréquence (jours), faite il y a N jours]]
         $rooms = [
-            ['name' => 'Cuisine', 'color' => '#F0A868', 'tasks' => [
-                ['name' => "Faire la vaisselle", 'frequencyDays' => 1, 'lastDoneDaysAgo' => 0],
-                ['name' => 'Nettoyer le plan de travail', 'frequencyDays' => 2, 'lastDoneDaysAgo' => 1],
-                ['name' => 'Nettoyer le four', 'frequencyDays' => 30, 'lastDoneDaysAgo' => 40],
-                ['name' => 'Vider le frigo', 'frequencyDays' => 14, 'lastDoneDaysAgo' => 10],
-            ]],
-            ['name' => 'Salle de bain', 'color' => '#6FB3B8', 'tasks' => [
-                ['name' => 'Nettoyer la douche', 'frequencyDays' => 7, 'lastDoneDaysAgo' => 6],
-                ['name' => 'Nettoyer les toilettes', 'frequencyDays' => 5, 'lastDoneDaysAgo' => 6],
-                ['name' => 'Laver les serviettes', 'frequencyDays' => 7, 'lastDoneDaysAgo' => 2],
-            ]],
-            ['name' => 'Salon', 'color' => '#8A8FD1', 'tasks' => [
-                ['name' => "Passer l'aspirateur", 'frequencyDays' => 7, 'lastDoneDaysAgo' => 3],
-                ['name' => 'Dépoussiérer', 'frequencyDays' => 10, 'lastDoneDaysAgo' => 4],
-                ['name' => 'Ranger', 'frequencyDays' => 3, 'lastDoneDaysAgo' => 1],
-            ]],
-            ['name' => 'Chambre', 'color' => '#D186A3', 'tasks' => [
-                ['name' => 'Changer les draps', 'frequencyDays' => 14, 'lastDoneDaysAgo' => 12],
-                ['name' => 'Passer l\'aspirateur', 'frequencyDays' => 7, 'lastDoneDaysAgo' => 1],
-            ]],
+            'Cuisine' => [
+                ['Essuyer le comptoir', 2, 1],
+                ['Nettoyer le four', 30, 40],
+                ['Organiser le réfrigérateur', 14, 10],
+                ['Nettoyer la plaque', 7, 0],
+            ],
+            'Salle de bain' => [
+                ['Nettoyer la baignoire', 7, 6],
+                ['Nettoyer les toilettes', 5, 6],
+                ['Changer les serviettes', 7, 2],
+            ],
+            'Salon' => [
+                ['Aspirateur', 7, 3],
+                ['Faire la poussière', 10, 4],
+                ['Ranger', 3, 1],
+            ],
+            'Chambre' => [
+                ['Changer les draps', 14, 12],
+                ['Aspirateur', 7, 1],
+            ],
         ];
 
-        foreach ($rooms as $position => $roomData) {
+        $roomCount = 0;
+        $taskCount = 0;
+        foreach ($rooms as $typeLabel => $tasks) {
+            $roomType = $this->entityManager->getRepository(RoomType::class)->findOneBy(['label' => $typeLabel]);
+            if (!$roomType instanceof RoomType) {
+                $io->error(sprintf('Type de pièce "%s" introuvable : lance d\'abord les migrations.', $typeLabel));
+
+                return Command::FAILURE;
+            }
+
             $room = new Room();
-            $room->setName($roomData['name']);
-            $room->setColor($roomData['color']);
-            $room->setPosition($position);
+            $room->setLabel($typeLabel);
+            $room->setRoomType($roomType);
+            $room->setColor(RoomCatalog::colorFor($typeLabel));
+            $room->setPosition($roomCount++);
             $room->setFoyer($foyer);
             $this->entityManager->persist($room);
 
-            foreach ($roomData['tasks'] as $taskData) {
-                $task = new Task();
-                $task->setName($taskData['name']);
-                $task->setRoom($room);
-                $task->setFrequencyDays($taskData['frequencyDays']);
+            foreach ($tasks as [$taskLabel, $frequencyDays, $doneDaysAgo]) {
+                $task = $this->entityManager->getRepository(Task::class)->findOneBy(['roomType' => $roomType, 'label' => $taskLabel]);
+                if (!$task instanceof Task) {
+                    $task = (new Task())->setRoomType($roomType)->setLabel($taskLabel)->setDefaultFrequencyDays($frequencyDays);
+                    $this->entityManager->persist($task);
+                }
 
-                $lastDoneAt = $now->modify(sprintf('-%d days', $taskData['lastDoneDaysAgo']));
-                $task->setLastDoneAt($lastDoneAt);
-                $this->entityManager->persist($task);
+                $lastDoneAt = $now->modify(sprintf('-%d days', $doneDaysAgo));
+
+                $roomTask = new RoomTask();
+                $roomTask->setRoom($room);
+                $roomTask->setTask($task);
+                $roomTask->setFrequencyDays($frequencyDays);
+                $roomTask->setLastDoneAt($lastDoneAt);
+                $this->entityManager->persist($roomTask);
 
                 $log = new TaskLog();
                 $log->setDoneAt($lastDoneAt);
                 $log->setDoneBy('Démo');
-                $task->addLog($log);
+                $roomTask->addLog($log);
                 $this->entityManager->persist($log);
+
+                $taskCount++;
             }
         }
 
         $this->entityManager->flush();
 
-        $io->success('Données de démo chargées : 1 foyer (code DEMO1234), 1 utilisateur (demo@homely.app / demodemo), 4 pièces, 12 tâches.');
+        $io->success(sprintf('Données de démo chargées : 1 foyer (code DEMO1234), 1 utilisateur (demo@homely.app / demodemo), %d pièces, %d tâches.', $roomCount, $taskCount));
 
         return Command::SUCCESS;
     }

@@ -71,6 +71,7 @@
     var options = Array.prototype.slice.call(list.querySelectorAll('[role="option"]'));
     var nameInput = document.getElementById('roomNameInput');
     var colorInput = document.getElementById('roomColorInput');
+    var typeIdInput = document.getElementById('roomTypeIdInput');
 
     function closeList() {
         list.hidden = true;
@@ -88,6 +89,9 @@
         });
         label.textContent = option.textContent;
 
+        if (typeIdInput) {
+            typeIdInput.value = option.getAttribute('data-id') || '';
+        }
         var value = option.getAttribute('data-value');
         if (!value) {
             return;

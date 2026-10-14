@@ -2,19 +2,19 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use App\Repository\TaskLogRepository;
-use Doctrine\ORM\Mapping as ORM;
 use DateTimeImmutable;
+use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
  * Historique en lecture seule des nettoyages effectués (créé uniquement par
- * TaskCompleteProcessor). Supprimé en cascade avec sa Task (RG4).
+ * RoomTaskCompleteProcessor / RoomController). Supprimé en cascade avec sa RoomTask (RG4).
  */
 #[ORM\Entity(repositoryClass: TaskLogRepository::class)]
 #[ApiResource(
@@ -25,7 +25,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
     order: ['doneAt' => 'DESC'],
     paginationItemsPerPage: 30,
 )]
-#[ApiFilter(SearchFilter::class, properties: ['task' => 'exact'])]
+#[ApiFilter(SearchFilter::class, properties: ['roomTask' => 'exact'])]
 #[ApiFilter(OrderFilter::class, properties: ['doneAt'])]
 class TaskLog
 {
@@ -35,10 +35,10 @@ class TaskLog
     #[Groups(['tasklog:read'])]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Task::class, inversedBy: 'logs')]
+    #[ORM\ManyToOne(targetEntity: RoomTask::class, inversedBy: 'logs')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Groups(['tasklog:read'])]
-    private ?Task $task = null;
+    private ?RoomTask $roomTask = null;
 
     #[ORM\Column]
     #[Groups(['tasklog:read'])]
@@ -58,14 +58,14 @@ class TaskLog
         return $this->id;
     }
 
-    public function getTask(): ?Task
+    public function getRoomTask(): ?RoomTask
     {
-        return $this->task;
+        return $this->roomTask;
     }
 
-    public function setTask(?Task $task): static
+    public function setRoomTask(?RoomTask $roomTask): static
     {
-        $this->task = $task;
+        $this->roomTask = $roomTask;
 
         return $this;
     }

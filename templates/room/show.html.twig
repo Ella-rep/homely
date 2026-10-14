@@ -1,6 +1,6 @@
 {% extends 'app.html.twig' %}
 
-{% block title %}{{ room.name }} · Homely{% endblock %}
+{% block title %}{{ room.label }} · Homely{% endblock %}
 
 {% block content %}
 <div class="room-detail">
@@ -9,25 +9,25 @@
     </a>
 
     <div class="room-hero" style="--room-color: {{ room.color }}">
-        <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.name)} %}</span>
-        <div class="hero-name display">{{ room.name }}</div>
-        <div class="hero-meta">{{ room.tasks|length }} tâche{{ room.tasks|length > 1 ? 's' : '' }}</div>
+        <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
+        <div class="hero-name display">{{ room.label }}</div>
+        <div class="hero-meta">{{ room.roomTasks|length }} tâche{{ room.roomTasks|length > 1 ? 's' : '' }}</div>
     </div>
 
-    {% if room.tasks|length == 0 %}
+    {% if room.roomTasks|length == 0 %}
         <p class="empty-state">Aucune tâche dans cette pièce.<br>Appuie sur + pour en ajouter une.</p>
     {% else %}
         <div class="task-list">
-            {% for task in room.tasks %}
+            {% for roomTask in room.roomTasks %}
                 <div class="task-card">
                     <div class="task-top">
-                        <span class="task-name">{{ task.name }}</span>
-                        <span class="due-pill {{ task.status }}">{{ task.dueLabel }}</span>
+                        <span class="task-name">{{ roomTask.label }}</span>
+                        <span class="due-pill {{ roomTask.status }}">{{ roomTask.dueLabel }}</span>
                     </div>
                     <div class="progress-track">
-                        <div class="progress-fill {{ task.status }}" style="width: {{ task.progressPercent }}%"></div>
+                        <div class="progress-fill {{ roomTask.status }}" style="width: {{ roomTask.progressPercent }}%"></div>
                     </div>
-                    <form method="post" action="{{ path('app_task_complete', {id: task.id}) }}">
+                    <form method="post" action="{{ path('app_task_complete', {id: roomTask.id}) }}">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('complete_task') }}">
                         <button type="submit" class="btn-done">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6"/></svg>

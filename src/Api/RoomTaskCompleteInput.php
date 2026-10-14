@@ -6,11 +6,11 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Corps de requête (facultatif) pour POST /api/tasks/{id}/complete.
+ * Corps de requête (facultatif) pour POST /api/room_tasks/{id}/complete.
  */
-final class TaskCompleteInput
+final class RoomTaskCompleteInput
 {
-    #[Groups(['task:write'])]
+    #[Groups(['room_task:write'])]
     #[Assert\Length(max: 80)]
     public ?string $doneBy = null;
 }

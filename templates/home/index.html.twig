@@ -16,9 +16,9 @@
         {% for room in rooms %}
             <a href="{{ path('app_room_show', {id: room.id}) }}" class="room-tile" style="--room-color: {{ room.color }}">
                 <span class="status-pip {{ room.status }}"></span>
-                <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.name)} %}</span>
+                <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
                 <span>
-                    <span class="tile-name">{{ room.name }}</span><br>
+                    <span class="tile-name">{{ room.label }}</span><br>
                     <span class="tile-meta">{{ room.taskCount }} tâche{{ room.taskCount > 1 ? 's' : '' }}{% if room.overdueCount > 0 %} · {{ room.overdueCount }} en retard{% elseif room.dueSoonCount > 0 %} · {{ room.dueSoonCount }} bientôt{% endif %}</span>
                 </span>
             </a>
@@ -53,8 +53,8 @@
                 </button>
                 <ul class="custom-select-list" role="listbox" data-custom-select-list hidden>
                     <li role="option" data-value="" aria-selected="true">— Choisir un type de pièce (optionnel) —</li>
-                    {% for item in roomCatalog %}
-                        <li role="option" data-value="{{ item.name }}" data-color="{{ item.color }}" aria-selected="false">{{ item.name }}{{ item.exterior ? ' (extérieur)' : '' }}</li>
+                    {% for type in roomTypes %}
+                        <li role="option" data-id="{{ type.id }}" data-value="{{ type.label }}" data-color="{{ type.color }}" aria-selected="false">{{ type.label }}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -65,6 +65,7 @@
         <label>Couleur
             <input name="color" id="roomColorInput" type="color" value="#8AA9B8">
         </label>
+        <input type="hidden" name="roomTypeId" id="roomTypeIdInput" value="">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('add_room') }}">
         <div class="sheet-actions">
             <button type="button" class="btn btn-ghost" data-close-modal>Annuler</button>

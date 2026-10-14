@@ -4,8 +4,10 @@ namespace App\Controller;
 
 use App\Entity\Foyer;
 use App\Entity\Room;
+use App\Entity\RoomType;
 use App\Entity\User;
 use App\Repository\RoomRepository;
+use App\Repository\RoomTypeRepository;
 use App\Service\RoomCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,8 +21,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 final class HomeController extends AbstractController
 {
+    private const FALLBACK_ROOM_TYPE = 'Autre';
+
     public function __construct(
         private readonly RoomRepository $roomRepository,
+        private readonly RoomTypeRepository $roomTypeRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
     ) {
@@ -50,13 +55,20 @@ final class HomeController extends AbstractController
             $summarySub = 'Aucune tâche en attente';
         }
 
-        $existingNames = array_map(static fn (Room $room): string => $room->getName(), $rooms);
+        $roomTypes = array_map(
+            static fn (RoomType $type): array => [
+                'id' => $type->getId(),
+                'label' => $type->getLabel(),
+                'color' => RoomCatalog::colorFor($type->getLabel()),
+            ],
+            $this->roomTypeRepository->findBy([], ['id' => 'ASC']),
+        );
 
         return $this->render('home/index.html.twig', [
             'rooms' => $rooms,
             'summaryLabel' => $summaryLabel,
             'summarySub' => $summarySub,
-            'roomCatalog' => RoomCatalog::excludingNames($existingNames),
+            'roomTypes' => $roomTypes,
         ]);
     }
 
@@ -68,20 +80,37 @@ final class HomeController extends AbstractController
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
 
-        $name = trim((string) $request->request->get('name'));
+        $label = trim((string) $request->request->get('name'));
         $color = (string) $request->request->get('color', '#8AA9B8');
+        $roomTypeId = (int) $request->request->get('roomTypeId', 0);
 
-        if ($name === '') {
+        if ($label === '') {
             $this->addFlash('error', 'Le nom de la pièce est obligatoire.');
 
             return $this->redirectToRoute('app_home');
         }
 
+        $roomType = $roomTypeId > 0 ? $this->roomTypeRepository->find($roomTypeId) : null;
+        $roomType ??= $this->roomTypeRepository->findOneByLabel(self::FALLBACK_ROOM_TYPE);
+        if (!$roomType instanceof RoomType) {
+            $this->addFlash('error', 'Type de pièce introuvable (catalogue non initialisé ?).');
+
+            return $this->redirectToRoute('app_home');
+        }
+
         $foyer = $this->currentFoyer();
+
+        if ($this->roomRepository->findOneBy(['foyer' => $foyer, 'label' => $label]) instanceof Room) {
+            $this->addFlash('error', sprintf('Une pièce "%s" existe déjà dans ton foyer.', $label));
+
+            return $this->redirectToRoute('app_home');
+        }
+
         $position = count($this->roomRepository->findBy(['foyer' => $foyer]));
 
         $room = new Room();
-        $room->setName($name);
+        $room->setLabel($label);
+        $room->setRoomType($roomType);
         $room->setColor(preg_match('/^#[0-9A-Fa-f]{6}$/', $color) ? $color : '#8AA9B8');
         $room->setPosition($position);
         $room->setFoyer($foyer);
@@ -89,7 +118,7 @@ final class HomeController extends AbstractController
         $this->entityManager->persist($room);
         $this->entityManager->flush();
 
-        $this->addFlash('success', sprintf('Pièce "%s" créée.', $name));
+        $this->addFlash('success', sprintf('Pièce "%s" créée.', $label));
 
         return $this->redirectToRoute('app_home');
     }

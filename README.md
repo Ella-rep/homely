@@ -8,7 +8,7 @@ Backend **Symfony 7 + API Platform**, frontend **Twig + CSS + JS vanilla** (aucu
 - Écran d'accueil : grille de tuiles colorées par pièce, avec un point de statut (vert/vide = à jour, orange = 1-2 tâches à faire, rouge = plusieurs tâches en retard).
 - Écran pièce : liste des tâches avec une barre de progression colorée (vert → orange → rouge selon l'échéance) et un libellé ("Dans 3 jours", "Aujourd'hui", "2 jours de retard").
 - Bouton "C'est fait ✓" pour valider une tâche (équivalent du "Just Did It" de Tody).
-- Ajout de pièces / tâches via une feuille modale (bouton + en haut à droite), avec suggestions issues du catalogue (`RoomCatalog`, `TaskCatalog`).
+- Ajout de pièces / tâches via une feuille modale (bouton + en haut à droite), avec suggestions issues du catalogue (tables `room_type` et `task`).
 - Thème clair / sombre (bouton dans l'en-tête, préférence mémorisée dans `localStorage`).
 
 Toute la logique de saleté (`status`, `progressPercent`, `dueLabel`) est calculée dans `src/Service/Dirtiness.php` et exposée en lecture par l'API comme par les pages Twig : le front ne fait qu'afficher ces champs.
@@ -26,9 +26,11 @@ Toutes les pièces appartiennent à un foyer ; chaque utilisateur ne voit que le
 
 - **Foyer** : `name`, `inviteCode` (unique) — regroupe des `User` et des `Room`.
 - **User** : `email` (identifiant de connexion), `pseudo`, `password` (hashé), `foyer`.
-- **Room** (pièce) : `name`, `color`, `position`, `foyer` + champs calculés `status`, `taskCount`, `overdueCount`, `dueSoonCount`.
-- **Task** (tâche récurrente) : `name`, `room`, `frequencyDays`, `lastDoneAt` + champs calculés `status`, `progressPercent`, `dueLabel`.
-- **TaskLog** (historique) : `task`, `doneAt`, `doneBy`. Supprimé en cascade avec sa tâche (RG4 actée : pas de soft delete/archivage).
+- **RoomType** (catalogue, lecture seule) : `label` — type de pièce (Cuisine, Salon, Salle de bain, WC, Chambre, Autre), pré-rempli par migration.
+- **Task** (catalogue, lecture seule) : `label`, `roomType`, `defaultFrequencyDays` — tâches proposées par type de pièce, pré-remplies par migration.
+- **Room** (pièce) : `label` (unique par foyer), `roomType`, `color`, `position`, `foyer` + champs calculés `status`, `taskCount`, `overdueCount`, `dueSoonCount`.
+- **RoomTask** (tâche choisie dans une pièce) : `room`, `task`, `frequencyDays`, `lastDoneAt` (unique `room`+`task`) + champs calculés `status`, `progressPercent`, `dueLabel`.
+- **TaskLog** (historique) : `roomTask`, `doneAt`, `doneBy`. Supprimé en cascade avec sa RoomTask (RG4 actée : pas de soft delete/archivage).
 
 ## Pages
 
@@ -41,17 +43,17 @@ Toutes les pièces appartiennent à un foyer ; chaque utilisateur ne voit que le
 | `POST /rooms` | Créer une pièce |
 | `GET /rooms/{id}` | Détail d'une pièce, liste des tâches |
 | `POST /rooms/{id}/tasks` | Créer une tâche |
-| `POST /rooms/{id}/tasks/catalogue` | Ajouter en masse des tâches suggérées (`TaskCatalog`) |
-| `POST /tasks/{id}/complete` | Marquer une tâche comme faite |
+| `POST /rooms/{id}/tasks/catalogue` | Ajouter en masse des tâches suggérées (catalogue en base : `task`) |
+| `POST /room-tasks/{id}/complete` | Marquer une tâche comme faite |
 
 ## API (référence / catalogue, JSON)
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/api/room-catalog` | Types de pièces suggérés |
-| GET | `/api/task-catalog` | Tâches suggérées par pièce |
+| GET | `/api/room_types`, `/api/room_types/{id}` | Types de pièces + tâches du catalogue (lecture seule) |
+| GET | `/api/tasks` (`?roomType=`), `/api/tasks/{id}` | Catalogue de tâches (lecture seule) |
 | GET/POST/PATCH/DELETE | `/api/rooms`, `/api/rooms/{id}` | API Platform (nécessite d'être connecté) |
-| GET/POST/PATCH/DELETE | `/api/tasks`, `/api/tasks/{id}` | API Platform (nécessite d'être connecté) |
+| GET/POST/PATCH/DELETE | `/api/room_tasks`, `/api/room_tasks/{id}` (+ `POST /api/room_tasks/{id}/complete`) | API Platform (nécessite d'être connecté) |
 
 ## Installation (Docker)
 

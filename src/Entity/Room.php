@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
@@ -10,21 +11,22 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use App\Repository\RoomRepository;
 use App\Service\Dirtiness;
+use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
-use DateTimeImmutable;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Une pièce / zone de la maison (ex: Cuisine, Salle de bain).
+ * Une pièce / zone du foyer (ex: Cuisine, Salle de bain), rattachée à un type de pièce (RoomType).
  * Toute la logique de saleté agrégée est calculée ici via Dirtiness, jamais côté front.
  */
 #[ORM\Entity(repositoryClass: RoomRepository::class)]
+#[ORM\Table(name: 'room')]
+#[ORM\UniqueConstraint(name: 'UNIQ_ROOM_FOYER_LABEL', columns: ['foyer_id', 'label'])]
 #[ApiResource(
     operations: [
         new GetCollection(),
@@ -37,7 +39,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     denormalizationContext: ['groups' => ['room:write']],
     order: ['position' => 'ASC'],
 )]
-#[ApiFilter(OrderFilter::class, properties: ['position', 'name'])]
+#[ApiFilter(OrderFilter::class, properties: ['position', 'label'])]
 class Room
 {
     #[ORM\Id]
@@ -46,15 +48,21 @@ class Room
     #[Groups(['room:read'])]
     private ?int $id = null;
 
-    #[ORM\Column(length: 80)]
-    #[Groups(['room:read', 'room:write', 'task:read'])]
+    #[ORM\Column(length: 255)]
+    #[Groups(['room:read', 'room:write', 'room_task:read'])]
     #[Assert\NotBlank]
-    #[Assert\Length(max: 80)]
-    private string $name = '';
+    #[Assert\Length(max: 255)]
+    private string $label = '';
+
+    #[ORM\ManyToOne(targetEntity: RoomType::class)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[Groups(['room:read', 'room:write'])]
+    #[Assert\NotNull]
+    private ?RoomType $roomType = null;
 
     /** Couleur d'affichage de la tuile, ex: #F0A868 */
     #[ORM\Column(length: 7)]
-    #[Groups(['room:read', 'room:write', 'task:read'])]
+    #[Groups(['room:read', 'room:write', 'room_task:read'])]
     #[Assert\NotBlank]
     #[Assert\Regex('/^#[0-9A-Fa-f]{6}$/')]
     private string $color = '#8AA9B8';
@@ -63,10 +71,11 @@ class Room
     #[Groups(['room:read', 'room:write'])]
     private int $position = 0;
 
-    #[ORM\OneToMany(mappedBy: 'room', targetEntity: Task::class, cascade: ['persist'], orphanRemoval: false)]
+    /** @var Collection<int, RoomTask> */
+    #[ORM\OneToMany(mappedBy: 'room', targetEntity: RoomTask::class, cascade: ['persist'], orphanRemoval: false)]
     #[Groups(['room:read'])]
     #[ApiProperty(writable: false)]
-    private Collection $tasks;
+    private Collection $roomTasks;
 
     #[ORM\ManyToOne(targetEntity: Foyer::class, inversedBy: 'rooms')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -78,7 +87,7 @@ class Room
 
     public function __construct()
     {
-        $this->tasks = new ArrayCollection();
+        $this->roomTasks = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -87,14 +96,26 @@ class Room
         return $this->id;
     }
 
-    public function getName(): string
+    public function getLabel(): string
     {
-        return $this->name;
+        return $this->label;
     }
 
-    public function setName(string $name): static
+    public function setLabel(string $label): static
     {
-        $this->name = $name;
+        $this->label = $label;
+
+        return $this;
+    }
+
+    public function getRoomType(): ?RoomType
+    {
+        return $this->roomType;
+    }
+
+    public function setRoomType(?RoomType $roomType): static
+    {
+        $this->roomType = $roomType;
 
         return $this;
     }
@@ -124,11 +145,11 @@ class Room
     }
 
     /**
-     * @return Collection<int, Task>
+     * @return Collection<int, RoomTask>
      */
-    public function getTasks(): Collection
+    public function getRoomTasks(): Collection
     {
-        return $this->tasks;
+        return $this->roomTasks;
     }
 
     public function getCreatedAt(): DateTimeImmutable
@@ -152,27 +173,27 @@ class Room
     #[ApiProperty]
     public function getStatus(): string
     {
-        return Dirtiness::aggregateStatus($this->tasks->toArray());
+        return Dirtiness::aggregateStatus($this->roomTasks->toArray());
     }
 
     #[Groups(['room:read'])]
     #[ApiProperty]
     public function getTaskCount(): int
     {
-        return $this->tasks->count();
+        return $this->roomTasks->count();
     }
 
     #[Groups(['room:read'])]
     #[ApiProperty]
     public function getOverdueCount(): int
     {
-        return Dirtiness::countByStatus($this->tasks->toArray(), Dirtiness::STATUS_OVERDUE);
+        return Dirtiness::countByStatus($this->roomTasks->toArray(), Dirtiness::STATUS_OVERDUE);
     }
 
     #[Groups(['room:read'])]
     #[ApiProperty]
     public function getDueSoonCount(): int
     {
-        return Dirtiness::countByStatus($this->tasks->toArray(), Dirtiness::STATUS_DUE_SOON);
+        return Dirtiness::countByStatus($this->roomTasks->toArray(), Dirtiness::STATUS_DUE_SOON);
     }
 }

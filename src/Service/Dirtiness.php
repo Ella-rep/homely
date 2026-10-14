@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\Task;
+use App\Entity\RoomTask;
 use DateTimeImmutable;
 
 /**
@@ -17,12 +17,12 @@ final class Dirtiness
 
     private const DUE_SOON_THRESHOLD = 0.7;
 
-    public static function referenceDate(Task $task): DateTimeImmutable
+    public static function referenceDate(RoomTask $task): DateTimeImmutable
     {
         return $task->getLastDoneAt() ?? $task->getCreatedAt();
     }
 
-    public static function daysSinceReference(Task $task, ?DateTimeImmutable $now = null): int
+    public static function daysSinceReference(RoomTask $task, ?DateTimeImmutable $now = null): int
     {
         $now ??= new DateTimeImmutable();
         $diff = self::referenceDate($task)->diff($now);
@@ -30,14 +30,14 @@ final class Dirtiness
         return (int) $diff->days;
     }
 
-    public static function ratio(Task $task, ?DateTimeImmutable $now = null): float
+    public static function ratio(RoomTask $task, ?DateTimeImmutable $now = null): float
     {
         $frequency = max(1, $task->getFrequencyDays());
 
         return self::daysSinceReference($task, $now) / $frequency;
     }
 
-    public static function status(Task $task, ?DateTimeImmutable $now = null): string
+    public static function status(RoomTask $task, ?DateTimeImmutable $now = null): string
     {
         $ratio = self::ratio($task, $now);
 
@@ -52,12 +52,12 @@ final class Dirtiness
         return self::STATUS_CLEAN;
     }
 
-    public static function progressPercent(Task $task, ?DateTimeImmutable $now = null): int
+    public static function progressPercent(RoomTask $task, ?DateTimeImmutable $now = null): int
     {
         return (int) min(100, round(self::ratio($task, $now) * 100));
     }
 
-    public static function dueLabel(Task $task, ?DateTimeImmutable $now = null): string
+    public static function dueLabel(RoomTask $task, ?DateTimeImmutable $now = null): string
     {
         $remaining = $task->getFrequencyDays() - self::daysSinceReference($task, $now);
 
@@ -79,7 +79,7 @@ final class Dirtiness
     }
 
     /**
-     * @param Task[] $tasks
+     * @param RoomTask[] $tasks
      */
     public static function aggregateStatus(array $tasks, ?DateTimeImmutable $now = null): string
     {
@@ -107,13 +107,13 @@ final class Dirtiness
     }
 
     /**
-     * @param Task[] $tasks
+     * @param RoomTask[] $tasks
      */
     public static function countByStatus(array $tasks, string $status, ?DateTimeImmutable $now = null): int
     {
         return count(array_filter(
             $tasks,
-            static fn (Task $task) => self::status($task, $now) === $status
+            static fn (RoomTask $task) => self::status($task, $now) === $status
         ));
     }
 }

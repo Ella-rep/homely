@@ -3,12 +3,13 @@
 namespace App\Controller;
 
 use App\Entity\Room;
+use App\Entity\RoomTask;
 use App\Entity\Task;
 use App\Entity\TaskLog;
 use App\Entity\User;
 use App\Repository\RoomRepository;
+use App\Repository\RoomTaskRepository;
 use App\Repository\TaskRepository;
-use App\Service\TaskCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,13 +23,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Les entités sont chargées "à la main" via les repositories : la config
  * Doctrine du projet désactive le controller_resolver.auto_mapping
  * (voir config/packages/doctrine.yaml), donc pas de résolution implicite
- * Room $room / Task $task depuis {id}.
+ * Room $room / RoomTask $roomTask depuis {id}.
  */
 #[IsGranted('ROLE_USER')]
 final class RoomController extends AbstractController
 {
     public function __construct(
         private readonly RoomRepository $roomRepository,
+        private readonly RoomTaskRepository $roomTaskRepository,
         private readonly TaskRepository $taskRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
@@ -42,10 +44,11 @@ final class RoomController extends AbstractController
 
         return $this->render('room/show.html.twig', [
             'room' => $room,
-            'catalogGroups' => $this->catalogGroupsForRoom($room->getName()),
+            'catalogTasks' => $this->availableCatalogTasks($room),
         ]);
     }
 
+    /** Ajout d'une tâche libre : réutilise l'entrée du catalogue de même libellé, sinon la crée. */
     #[Route('/rooms/{id}/tasks', name: 'app_task_create', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function createTask(int $id, Request $request): Response
     {
@@ -56,24 +59,34 @@ final class RoomController extends AbstractController
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
 
-        $name = trim((string) $request->request->get('name'));
+        $label = trim((string) $request->request->get('name'));
         $frequencyDays = max(1, (int) $request->request->get('frequencyDays', 7));
 
-        if ($name === '') {
+        if ($label === '') {
             $this->addFlash('error', 'Le nom de la tâche est obligatoire.');
 
             return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
         }
 
-        $task = new Task();
-        $task->setName($name);
-        $task->setRoom($room);
-        $task->setFrequencyDays($frequencyDays);
+        $task = $this->findCatalogTaskByLabel($room, $label);
+        if (!$task instanceof Task) {
+            $task = new Task();
+            $task->setRoomType($room->getRoomType());
+            $task->setLabel($label);
+            $task->setDefaultFrequencyDays($frequencyDays);
+            $this->entityManager->persist($task);
+        }
 
-        $this->entityManager->persist($task);
+        if ($this->roomHasTask($room, $task)) {
+            $this->addFlash('error', 'Cette tâche est déjà présente dans la pièce.');
+
+            return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+        }
+
+        $this->entityManager->persist($this->newRoomTask($room, $task, $frequencyDays));
         $this->entityManager->flush();
 
-        $this->addFlash('success', sprintf('Tâche "%s" ajoutée.', $name));
+        $this->addFlash('success', sprintf('Tâche "%s" ajoutée.', $task->getLabel()));
 
         return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
     }
@@ -89,38 +102,25 @@ final class RoomController extends AbstractController
         }
 
         $selected = $request->request->all('tasks');
-        if (!is_array($selected) || $selected === []) {
+        if ($selected === []) {
             $this->addFlash('error', 'Choisis au moins une tâche dans le catalogue.');
 
             return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
         }
 
-        $existingNames = array_map(
-            static fn (Task $task): string => mb_strtolower($task->getName()),
-            $room->getTasks()->toArray(),
-        );
-
         $created = 0;
-        foreach ($selected as $entry) {
-            if (!is_string($entry) || !str_contains($entry, '|')) {
+        foreach ($selected as $taskId) {
+            $task = $this->taskRepository->find((int) $taskId);
+
+            // Uniquement le catalogue du type de la pièce, et pas de doublon.
+            if (!$task instanceof Task
+                || $task->getRoomType()?->getId() !== $room->getRoomType()?->getId()
+                || $this->roomHasTask($room, $task)
+            ) {
                 continue;
             }
 
-            [$name, $frequencyRaw] = explode('|', $entry, 2);
-            $name = trim($name);
-            $frequencyDays = max(1, (int) $frequencyRaw);
-
-            if ($name === '' || in_array(mb_strtolower($name), $existingNames, true)) {
-                continue;
-            }
-
-            $task = new Task();
-            $task->setName($name);
-            $task->setRoom($room);
-            $task->setFrequencyDays($frequencyDays);
-            $this->entityManager->persist($task);
-
-            $existingNames[] = mb_strtolower($name);
+            $this->entityManager->persist($this->newRoomTask($room, $task, $task->getDefaultFrequencyDays()));
             $created++;
         }
 
@@ -134,15 +134,15 @@ final class RoomController extends AbstractController
         return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
     }
 
-    #[Route('/tasks/{id}/complete', name: 'app_task_complete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/room-tasks/{id}/complete', name: 'app_task_complete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function completeTask(int $id, Request $request): Response
     {
-        $task = $this->taskRepository->find($id);
-        if (!$task instanceof Task) {
+        $roomTask = $this->roomTaskRepository->find($id);
+        if (!$roomTask instanceof RoomTask) {
             throw $this->createNotFoundException('Tâche introuvable.');
         }
 
-        $room = $task->getRoom();
+        $room = $roomTask->getRoom();
         $this->denyUnlessSameFoyer($room);
 
         $token = new CsrfToken('complete_task', (string) $request->request->get('_csrf_token'));
@@ -157,8 +157,8 @@ final class RoomController extends AbstractController
         $log = new TaskLog();
         $log->setDoneAt($now);
         $log->setDoneBy($user->getPseudo());
-        $task->addLog($log);
-        $task->setLastDoneAt($now);
+        $roomTask->addLog($log);
+        $roomTask->setLastDoneAt($now);
 
         $this->entityManager->persist($log);
         $this->entityManager->flush();
@@ -169,27 +169,55 @@ final class RoomController extends AbstractController
     }
 
     /**
-     * Regroupe les tâches suggérées du catalogue pour une pièce, en faisant
-     * correspondre son nom (insensible à la casse) à une entrée du catalogue,
-     * et en complétant toujours avec les tâches "Général".
+     * Tâches du catalogue du type de la pièce, hors celles déjà présentes dans la pièce.
      *
-     * @return array<string, array<string, array<int, array{name: string, frequencyDays: int}>>>
+     * @return Task[]
      */
-    private function catalogGroupsForRoom(string $roomName): array
+    private function availableCatalogTasks(Room $room): array
     {
-        $normalized = mb_strtolower(trim($roomName));
-        $result = [];
+        $taken = array_map(
+            static fn (RoomTask $roomTask): ?int => $roomTask->getTask()?->getId(),
+            $room->getRoomTasks()->toArray(),
+        );
 
-        foreach (TaskCatalog::all() as $entry) {
-            $entryName = mb_strtolower($entry['room']);
-            if ($entryName === $normalized || $entryName === 'général') {
-                foreach ($entry['groups'] as $category => $tasks) {
-                    $result[$entry['room']][$category] = $tasks;
-                }
+        return array_values(array_filter(
+            $room->getRoomType()?->getTasks()->toArray() ?? [],
+            static fn (Task $task): bool => !in_array($task->getId(), $taken, true),
+        ));
+    }
+
+    private function findCatalogTaskByLabel(Room $room, string $label): ?Task
+    {
+        $needle = mb_strtolower($label);
+
+        foreach ($room->getRoomType()?->getTasks() ?? [] as $task) {
+            if (mb_strtolower($task->getLabel()) === $needle) {
+                return $task;
             }
         }
 
-        return $result;
+        return null;
+    }
+
+    private function roomHasTask(Room $room, Task $task): bool
+    {
+        foreach ($room->getRoomTasks() as $roomTask) {
+            if ($roomTask->getTask() === $task) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function newRoomTask(Room $room, Task $task, int $frequencyDays): RoomTask
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setRoom($room);
+        $roomTask->setTask($task);
+        $roomTask->setFrequencyDays(max(1, $frequencyDays));
+
+        return $roomTask;
     }
 
     private function findRoomOrFail(int $id): Room

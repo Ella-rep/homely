@@ -3,10 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Foyer;
-use App\Entity\Task;
+use App\Entity\RoomTask;
 use App\Entity\User;
 use App\Repository\RoomRepository;
-use App\Repository\TaskRepository;
+use App\Repository\RoomTaskRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,7 +31,7 @@ final class SettingsController extends AbstractController
 {
     public function __construct(
         private readonly RoomRepository $roomRepository,
-        private readonly TaskRepository $taskRepository,
+        private readonly RoomTaskRepository $roomTaskRepository,
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
@@ -117,15 +117,8 @@ final class SettingsController extends AbstractController
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
 
-        $name = trim((string) $request->request->get('name'));
         $frequencyDays = max(1, (int) $request->request->get('frequencyDays', 7));
         $lastDoneAtRaw = trim((string) $request->request->get('lastDoneAt'));
-
-        if ($name === '') {
-            $this->addFlash('error', 'Le nom de la tâche est obligatoire.');
-
-            return $this->redirectToRoute('app_settings');
-        }
 
         $lastDoneAt = null;
         if ($lastDoneAtRaw !== '') {
@@ -137,13 +130,12 @@ final class SettingsController extends AbstractController
             }
         }
 
-        $task->setName($name);
         $task->setFrequencyDays($frequencyDays);
         $task->setLastDoneAt($lastDoneAt);
 
         $this->entityManager->flush();
 
-        $this->addFlash('success', sprintf('Tâche "%s" mise à jour.', $name));
+        $this->addFlash('success', sprintf('Tâche "%s" mise à jour.', $task->getLabel()));
 
         return $this->redirectToRoute('app_settings');
     }
@@ -158,7 +150,7 @@ final class SettingsController extends AbstractController
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
 
-        $name = $task->getName();
+        $name = $task->getLabel();
 
         $this->entityManager->remove($task);
         $this->entityManager->flush();
@@ -168,12 +160,12 @@ final class SettingsController extends AbstractController
         return $this->redirectToRoute('app_settings');
     }
 
-    private function findTaskOrFail(int $id): Task
+    private function findTaskOrFail(int $id): RoomTask
     {
-        $task = $this->taskRepository->find($id);
+        $task = $this->roomTaskRepository->find($id);
         $foyer = $this->currentFoyer();
 
-        if (!$task instanceof Task || $task->getRoom()?->getFoyer()?->getId() !== $foyer->getId()) {
+        if (!$task instanceof RoomTask || $task->getRoom()?->getFoyer()?->getId() !== $foyer->getId()) {
             throw $this->createNotFoundException('Tâche introuvable.');
         }
 
