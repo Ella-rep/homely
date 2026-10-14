@@ -2,7 +2,7 @@
     "name": "elodie/homely",
     "description": "Homely \u2014 (gestion des t\u00e2ches m\u00e9nag\u00e8res), backend Symfony + API Platform",
     "type": "project",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "license": "proprietary",
     "require": {
         "php": ">=8.2",
