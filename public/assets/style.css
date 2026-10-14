@@ -1015,3 +1015,34 @@ dialog.sheet-dialog::backdrop {
     color: var(--overdue);
     border-color: var(--overdue-bg);
 }
+
+/* Foyers multiples */
+.foyer-row {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.foyer-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+.foyer-actions form {
+    margin: 0;
+}
+.btn-danger {
+    color: #d64545;
+    border-color: currentColor;
+}
+.topbar-foyer {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}

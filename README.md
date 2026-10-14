@@ -20,12 +20,14 @@ L'accès à l'application nécessite un compte (email + mot de passe). À l'insc
 - **Créer un foyer** : génère un code d'invitation à 6 caractères à partager avec les autres membres.
 - **Rejoindre un foyer** existant avec ce code.
 
-Toutes les pièces appartiennent à un foyer ; chaque utilisateur ne voit que les pièces de son propre foyer (`RoomController::denyUnlessSameFoyer`).
+Un utilisateur peut appartenir à **plusieurs foyers** (page `/foyers`) : en créer un autre, en rejoindre un avec un code, changer de foyer actif (mémorisé en session, voir `CurrentFoyer`), ou le **quitter**. Le **créateur** (`Foyer.owner`) ne peut pas quitter son foyer mais peut le **supprimer** (pièces, tâches et historiques supprimés en cascade pour tous les membres). Un utilisateur sans foyer est redirigé vers `/foyers`.
+
+Toutes les pièces appartiennent à un foyer ; chaque utilisateur ne voit que les pièces des foyers dont il est membre (`RoomController::denyUnlessSameFoyer`), l'accueil affichant celles du foyer actif.
 
 ## Modèle de données
 
-- **Foyer** : `name`, `inviteCode` (unique) — regroupe des `User` et des `Room`.
-- **User** : `email` (identifiant de connexion), `pseudo`, `password` (hashé), `foyer`.
+- **Foyer** : `name`, `inviteCode` (unique), `owner` (créateur) — regroupe des `User` (many-to-many) et des `Room`.
+- **User** : `email` (identifiant de connexion), `pseudo`, `password` (hashé), `foyers` (table `user_foyer`).
 - **RoomType** (catalogue, lecture seule) : `label` — type de pièce (Cuisine, Salon, Salle de bain, WC, Chambre, Autre), pré-rempli par migration.
 - **Task** (catalogue, lecture seule) : `label`, `roomType`, `defaultFrequencyDays` — tâches proposées par type de pièce, pré-remplies par migration.
 - **Room** (pièce) : `label` (unique par foyer), `roomType`, `color`, `position`, `foyer` + champs calculés `status`, `taskCount`, `overdueCount`, `dueSoonCount`.
@@ -40,6 +42,9 @@ Toutes les pièces appartiennent à un foyer ; chaque utilisateur ne voit que le
 | `GET /register` | Choix créer / rejoindre un foyer |
 | `POST /register/creer`, `POST /register/rejoindre` | Création de compte |
 | `GET /` | Accueil : grille des pièces du foyer |
+| `GET /foyers` | Mes foyers : liste, créer, rejoindre |
+| `POST /foyers/creer`, `/foyers/rejoindre` | Créer / rejoindre un foyer (devient le foyer actif) |
+| `POST /foyers/{id}/activer`, `/quitter`, `/supprimer` | Changer de foyer actif / quitter / supprimer (créateur uniquement) |
 | `POST /rooms` | Créer une pièce |
 | `GET /rooms/{id}` | Détail d'une pièce, liste des tâches |
 | `POST /rooms/{id}/tasks` | Créer une tâche |

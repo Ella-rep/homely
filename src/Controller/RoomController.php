@@ -234,10 +234,11 @@ final class RoomController extends AbstractController
 
     private function denyUnlessSameFoyer(?Room $room): void
     {
+        // Une pièce est accessible dès que l'utilisateur est membre de son foyer.
         /** @var User $user */
         $user = $this->getUser();
 
-        if (!$room instanceof Room || $room->getFoyer()?->getId() !== $user->getFoyer()?->getId()) {
+        if (!$room instanceof Room || !$room->getFoyer() || !$user->getFoyers()->contains($room->getFoyer())) {
             throw $this->createNotFoundException('Pièce introuvable.');
         }
     }

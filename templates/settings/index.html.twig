@@ -18,7 +18,7 @@
                 <span class="code-card-value" id="inviteCodeValue">{{ foyer.inviteCode }}</span>
                 <button type="button" class="btn btn-ghost" id="copyInviteCode" data-code="{{ foyer.inviteCode }}">Copier</button>
             </div>
-            <p class="settings-hint">Partage ce code pour que quelqu'un rejoigne le foyer depuis l'écran d'inscription.</p>
+            <p class="settings-hint">Partage ce code pour que quelqu'un rejoigne le foyer (inscription, ou page « Mes foyers » s'il a déjà un compte). <a href="{{ path('app_foyers') }}">Gérer mes foyers</a></p>
         </div>
     </section>
 
@@ -34,7 +34,7 @@
                 <div class="member-row">
                     <span class="member-avatar">{{ member.pseudo|slice(0, 1)|upper }}</span>
                     <span class="member-info">
-                        <span class="member-name">{{ member.pseudo }}{% if member.id == app.user.id %} <span class="member-you">(toi)</span>{% endif %}</span><br>
+                        <span class="member-name">{{ member.pseudo }}{% if member.id == app.user.id %} <span class="member-you">(toi)</span>{% endif %}{% if foyer.owner and foyer.owner.id == member.id %} <span class="member-you">· créateur</span>{% endif %}</span><br>
                         <span class="member-email">{{ member.email }}</span>
                     </span>
                 </div>

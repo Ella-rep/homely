@@ -20,4 +20,19 @@ class FoyerRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['inviteCode' => strtoupper($inviteCode)]);
     }
+
+    /** Code d'invitation à 6 caractères, unique, sans caractères ambigus (0/O, 1/I). */
+    public function generateUniqueInviteCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        do {
+            $code = '';
+            for ($i = 0; $i < 6; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while ($this->findOneByInviteCode($code) !== null);
+
+        return $code;
+    }
 }

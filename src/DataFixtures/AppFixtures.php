@@ -37,7 +37,8 @@ class AppFixtures extends Fixture
         $user = new User();
         $user->setEmail('demo@homely.app');
         $user->setPseudo('Démo');
-        $user->setFoyer($foyer);
+        $user->addFoyer($foyer);
+        $foyer->setOwner($user);
         $user->setPassword($this->passwordHasher->hashPassword($user, 'demodemo'));
         $manager->persist($user);
 

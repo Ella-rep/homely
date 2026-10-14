@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Foyer;
 use App\Entity\RoomTask;
 use App\Entity\User;
+use App\Service\CurrentFoyer;
 use App\Repository\RoomRepository;
 use App\Repository\RoomTaskRepository;
 use App\Repository\UserRepository;
@@ -30,6 +31,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class SettingsController extends AbstractController
 {
     public function __construct(
+        private readonly CurrentFoyer $currentFoyer,
         private readonly RoomRepository $roomRepository,
         private readonly RoomTaskRepository $roomTaskRepository,
         private readonly UserRepository $userRepository,
@@ -47,7 +49,7 @@ final class SettingsController extends AbstractController
 
         return $this->render('settings/index.html.twig', [
             'foyer' => $foyer,
-            'members' => $this->userRepository->findBy(['foyer' => $foyer], ['createdAt' => 'ASC']),
+            'members' => $foyer->getUsers()->toArray(),
             'rooms' => $this->roomRepository->findBy(['foyer' => $foyer], ['position' => 'ASC']),
         ]);
     }
@@ -96,7 +98,7 @@ final class SettingsController extends AbstractController
         $user = new User();
         $user->setEmail($email);
         $user->setPseudo($pseudo);
-        $user->setFoyer($this->currentFoyer());
+        $user->addFoyer($this->currentFoyer());
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
 
         $this->entityManager->persist($user);
@@ -174,9 +176,6 @@ final class SettingsController extends AbstractController
 
     private function currentFoyer(): Foyer
     {
-        /** @var User $user */
-        $user = $this->getUser();
-
-        return $user->getFoyer();
+        return $this->currentFoyer->get() ?? throw $this->createNotFoundException('Aucun foyer.');
     }
 }

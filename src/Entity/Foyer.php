@@ -34,8 +34,13 @@ class Foyer
     #[ORM\Column]
     private DateTimeImmutable $createdAt;
 
+    /** Créateur du foyer : seul à pouvoir le supprimer. */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $owner = null;
+
     /** @var Collection<int, User> */
-    #[ORM\OneToMany(mappedBy: 'foyer', targetEntity: User::class)]
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'foyers')]
     private Collection $users;
 
     /** @var Collection<int, Room> */
@@ -81,6 +86,23 @@ class Foyer
     public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): static
+    {
+        $this->owner = $owner;
+
+        return $this;
+    }
+
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->owner !== null && $this->owner->getId() === $user->getId();
     }
 
     /**

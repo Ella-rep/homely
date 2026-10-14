@@ -1,0 +1,79 @@
+{% extends 'app.html.twig' %}
+
+{% block title %}Mes foyers · Homely{% endblock %}
+
+{% block content %}
+<div class="room-detail">
+    {% if current %}
+    <a href="{{ path('app_home') }}" class="back-btn" aria-label="Retour">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+    </a>
+    {% endif %}
+
+    <h1 class="settings-title display">Mes foyers</h1>
+
+    {% if foyers|length == 0 %}
+        <p class="empty-state">Tu n'as plus de foyer. Crée-en un ou rejoins-en un avec un code.</p>
+    {% endif %}
+
+    <section class="settings-section">
+        <div class="member-list">
+            {% for foyer in foyers %}
+                {% set isOwner = foyer.owner and foyer.owner.id == app.user.id %}
+                {% set isCurrent = current and current.id == foyer.id %}
+                <div class="member-row foyer-row">
+                    <span class="member-info">
+                        <span class="member-name">{{ foyer.name }}</span>
+                        {% if isCurrent %}<span class="member-you">(actif)</span>{% endif %}
+                        {% if isOwner %}<span class="member-you">· créateur</span>{% endif %}<br>
+                        <span class="member-email">{{ foyer.users|length }} membre{{ foyer.users|length > 1 ? 's' : '' }} · code {{ foyer.inviteCode }}</span>
+                    </span>
+                    <span class="foyer-actions">
+                        {% if not isCurrent %}
+                            <form method="post" action="{{ path('app_foyer_switch', {id: foyer.id}) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_switch') }}">
+                                <button type="submit" class="btn btn-primary">Ouvrir</button>
+                            </form>
+                        {% endif %}
+                        {% if isOwner %}
+                            <form method="post" action="{{ path('app_foyer_delete', {id: foyer.id}) }}"
+                                  onsubmit="return confirm('Supprimer définitivement « {{ foyer.name|e('js') }} » ? Les pièces, tâches et historiques seront perdus pour tous les membres.');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_delete') }}">
+                                <button type="submit" class="btn btn-ghost btn-danger">Supprimer</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{{ path('app_foyer_leave', {id: foyer.id}) }}"
+                                  onsubmit="return confirm('Quitter « {{ foyer.name|e('js') }} » ?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_leave') }}">
+                                <button type="submit" class="btn btn-ghost">Quitter</button>
+                            </form>
+                        {% endif %}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="settings-section">
+        <h2 class="settings-section-title">Créer un foyer</h2>
+        <form method="post" action="{{ path('app_foyer_create') }}" class="auth-form">
+            <label>Nom du foyer
+                <input type="text" name="foyer_name" maxlength="80" required placeholder="Ex : Résidence secondaire">
+            </label>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_create') }}">
+            <button type="submit" class="btn btn-primary btn-block">Créer</button>
+        </form>
+    </section>
+
+    <section class="settings-section">
+        <h2 class="settings-section-title">Rejoindre un foyer</h2>
+        <form method="post" action="{{ path('app_foyer_join') }}" class="auth-form">
+            <label>Code du foyer
+                <input type="text" name="invite_code" maxlength="8" required autocapitalize="characters" placeholder="Ex : 7K3PQR">
+            </label>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_join') }}">
+            <button type="submit" class="btn btn-primary btn-block">Rejoindre</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

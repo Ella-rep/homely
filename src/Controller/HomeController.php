@@ -6,6 +6,7 @@ use App\Entity\Foyer;
 use App\Entity\Room;
 use App\Entity\RoomType;
 use App\Entity\User;
+use App\Service\CurrentFoyer;
 use App\Repository\RoomRepository;
 use App\Repository\RoomTypeRepository;
 use App\Service\RoomCatalog;
@@ -24,6 +25,7 @@ final class HomeController extends AbstractController
     private const FALLBACK_ROOM_TYPE = 'Autre';
 
     public function __construct(
+        private readonly CurrentFoyer $currentFoyer,
         private readonly RoomRepository $roomRepository,
         private readonly RoomTypeRepository $roomTypeRepository,
         private readonly EntityManagerInterface $entityManager,
@@ -125,9 +127,6 @@ final class HomeController extends AbstractController
 
     private function currentFoyer(): Foyer
     {
-        /** @var User $user */
-        $user = $this->getUser();
-
-        return $user->getFoyer();
+        return $this->currentFoyer->get() ?? throw $this->createNotFoundException('Aucun foyer.');
     }
 }

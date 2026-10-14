@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use DateTimeImmutable;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -40,15 +42,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private string $password = '';
 
-    #[ORM\ManyToOne(targetEntity: Foyer::class, inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    private ?Foyer $foyer = null;
+    /** @var Collection<int, Foyer> Un utilisateur peut appartenir à plusieurs foyers. */
+    #[ORM\ManyToMany(targetEntity: Foyer::class, inversedBy: 'users')]
+    #[ORM\JoinTable(name: 'user_foyer')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'foyer_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private Collection $foyers;
 
     #[ORM\Column]
     private DateTimeImmutable $createdAt;
 
     public function __construct()
     {
+        $this->foyers = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -122,14 +128,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getFoyer(): ?Foyer
+    /**
+     * @return Collection<int, Foyer>
+     */
+    public function getFoyers(): Collection
     {
-        return $this->foyer;
+        return $this->foyers;
     }
 
-    public function setFoyer(?Foyer $foyer): static
+    public function addFoyer(Foyer $foyer): static
     {
-        $this->foyer = $foyer;
+        if (!$this->foyers->contains($foyer)) {
+            $this->foyers->add($foyer);
+        }
+
+        return $this;
+    }
+
+    public function removeFoyer(Foyer $foyer): static
+    {
+        $this->foyers->removeElement($foyer);
 
         return $this;
     }

@@ -70,10 +70,10 @@ final class RegisterController extends AbstractController
 
         $foyer = new Foyer();
         $foyer->setName($foyerName);
-        $foyer->setInviteCode($this->generateUniqueInviteCode());
+        $foyer->setInviteCode($this->foyerRepository->generateUniqueInviteCode());
         $this->entityManager->persist($foyer);
 
-        return $this->persistUserAndRedirect($request, $foyer);
+        return $this->persistUserAndRedirect($request, $foyer, true);
     }
 
     #[Route('/register/rejoindre', name: 'app_register_join_foyer', methods: ['POST'])]
@@ -132,7 +132,7 @@ final class RegisterController extends AbstractController
         return $errors;
     }
 
-    private function persistUserAndRedirect(Request $request, Foyer $foyer): Response
+    private function persistUserAndRedirect(Request $request, Foyer $foyer, bool $creator = false): Response
     {
         $email = strtolower(trim((string) $request->request->get('email')));
         $pseudo = trim((string) $request->request->get('pseudo'));
@@ -141,7 +141,10 @@ final class RegisterController extends AbstractController
         $user = new User();
         $user->setEmail($email);
         $user->setPseudo($pseudo);
-        $user->setFoyer($foyer);
+        $user->addFoyer($foyer);
+        if ($creator) {
+            $foyer->setOwner($user);
+        }
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
 
         $this->entityManager->persist($user);
@@ -164,20 +167,6 @@ final class RegisterController extends AbstractController
                 'pseudo' => $request->request->get('pseudo', ''),
             ],
         ]);
-    }
-
-    private function generateUniqueInviteCode(): string
-    {
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-        do {
-            $code = '';
-            for ($i = 0; $i < 6; $i++) {
-                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-            }
-        } while ($this->foyerRepository->findOneByInviteCode($code) !== null);
-
-        return $code;
     }
 
     private function assertCsrf(Request $request): void
