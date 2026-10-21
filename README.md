@@ -72,7 +72,7 @@ docker compose exec app php bin/console app:load-demo-data   # foyer + user de d
 
 Ouvre `http://127.0.0.1:8000/` (ou le port défini par `APP_PORT`). Identifiants de démo : `demo@homely.app` / `demodemo`.
 
-## Pistes de suite
+## Pistes pour la suite
 
 - Historique visible dans l'UI (l'endpoint `task_logs` existe déjà côté API).
 - Notifications de rappel.
