@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\RoomRepository;
 use App\Service\Dirtiness;
+use App\Service\RoomCatalog;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -60,12 +61,12 @@ class Room
     #[Assert\NotNull]
     private ?RoomType $roomType = null;
 
-    /** Couleur d'affichage de la tuile, ex: #F0A868 */
+    /** Couleur d'affichage de la tuile : uniquement une couleur de RoomCatalog::PALETTE. */
     #[ORM\Column(length: 7)]
     #[Groups(['room:read', 'room:write', 'room_task:read'])]
     #[Assert\NotBlank]
-    #[Assert\Regex('/^#[0-9A-Fa-f]{6}$/')]
-    private string $color = '#8AA9B8';
+    #[Assert\Choice(callback: [RoomCatalog::class, 'allowedColors'], message: 'Couleur non proposée.')]
+    private string $color = '#5B7CFA';
 
     #[ORM\Column]
     #[Groups(['room:read', 'room:write'])]
@@ -181,6 +182,23 @@ class Room
     public function getTaskCount(): int
     {
         return $this->roomTasks->count();
+    }
+
+    #[Groups(['room:read'])]
+    #[ApiProperty]
+    public function getCleanCount(): int
+    {
+        return Dirtiness::countByStatus($this->roomTasks->toArray(), Dirtiness::STATUS_CLEAN);
+    }
+
+    /** Part des tâches à jour (0-100) ; 100 pour une pièce sans tâche. */
+    #[Groups(['room:read'])]
+    #[ApiProperty]
+    public function getCleanPercent(): int
+    {
+        $total = $this->roomTasks->count();
+
+        return $total === 0 ? 100 : (int) round($this->getCleanCount() / $total * 100);
     }
 
     #[Groups(['room:read'])]

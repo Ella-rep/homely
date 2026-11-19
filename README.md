@@ -5,11 +5,12 @@ Backend **Symfony 7 + API Platform**, frontend **Twig + CSS + JS vanilla** (aucu
 
 ## Design — inspiré de Tody
 
-- Écran d'accueil : grille de tuiles colorées par pièce, avec un point de statut (vert/vide = à jour, orange = 1-2 tâches à faire, rouge = plusieurs tâches en retard).
-- Écran pièce : liste des tâches avec une barre de progression colorée (vert → orange → rouge selon l'échéance) et un libellé ("Dans 3 jours", "Aujourd'hui", "2 jours de retard").
-- Bouton "C'est fait ✓" pour valider une tâche (équivalent du "Just Did It" de Tody).
+- Palette « Iris » (clair + sombre) : un seul accent violet, neutres teintés, statuts toujours en texte + fond + symbole (✓ ● ▲), jamais la couleur seule.
+- Écran d'accueil : grille de tuiles pastel par pièce (pastille icône + badge de statut « À jour / Bientôt / En retard »). Pastille, fond et texte dérivent de `Room.color` via la syntaxe oklch relative (`style.css`).
+- Écran pièce : carte héros pastel avec anneau de progression (% de tâches à jour, calculé dans `Room::getCleanPercent`), tâches groupées en retard / bientôt / à jour, barre de progression et libellé ("Dans 3 jours", "Aujourd'hui", "2 jours de retard").
+- Bouton rond ✓ pour valider une tâche (équivalent du "Just Did It" de Tody), avec toast « Annuler » pendant 15 minutes.
 - Ajout de pièces / tâches via une feuille modale (bouton + en haut à droite), avec suggestions issues du catalogue (tables `room_type` et `task`).
-- Thème clair / sombre (bouton dans l'en-tête, préférence mémorisée dans `localStorage`).
+- Thème clair / sombre (bouton dans Paramètres, préférence mémorisée dans `localStorage`).
 
 Toute la logique de saleté (`status`, `progressPercent`, `dueLabel`) est calculée dans `src/Service/Dirtiness.php` et exposée en lecture par l'API comme par les pages Twig : le front ne fait qu'afficher ces champs.
 

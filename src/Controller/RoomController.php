@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\RoomRepository;
 use App\Repository\RoomTaskRepository;
 use App\Repository\TaskRepository;
+use App\Service\Dirtiness;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -44,6 +45,7 @@ final class RoomController extends AbstractController
 
         return $this->render('room/show.html.twig', [
             'room' => $room,
+            'groupedTasks' => Dirtiness::groupByStatus($room->getRoomTasks()->toArray()),
             'catalogTasks' => $this->availableCatalogTasks($room),
         ]);
     }
@@ -153,19 +155,134 @@ final class RoomController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $now = new \DateTimeImmutable();
+        $previousDoneAt = $roomTask->getLastDoneAt();
 
         $log = new TaskLog();
         $log->setDoneAt($now);
-        $log->setDoneBy($user->getPseudo());
+        $log->setDoneBy($user);
         $roomTask->addLog($log);
         $roomTask->setLastDoneAt($now);
 
         $this->entityManager->persist($log);
         $this->entityManager->flush();
 
-        $this->addFlash('success', 'Tâche marquée comme faite !');
+        // Toast « Annuler » (voir templates/app.html.twig) plutôt qu'un simple message.
+        $this->addFlash('undo', [
+            'id' => $roomTask->getId(),
+            'name' => $roomTask->getLabel(),
+            'prev' => $previousDoneAt?->format(\DateTimeInterface::ATOM) ?? '',
+        ]);
 
         return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+    }
+
+    /** Annule le dernier « C'est fait » (fenêtre de 15 minutes) : supprime le log et restaure la date précédente. */
+    #[Route('/room-tasks/{id}/undo', name: 'app_task_undo', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function undoTask(int $id, Request $request): Response
+    {
+        $roomTask = $this->findRoomTaskOrFail($id);
+        $room = $roomTask->getRoom();
+
+        $token = new CsrfToken('undo_task', (string) $request->request->get('_csrf_token'));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $latest = null;
+        foreach ($roomTask->getLogs() as $log) {
+            if ($latest === null || $log->getDoneAt() > $latest->getDoneAt()) {
+                $latest = $log;
+            }
+        }
+
+        $limit = (new \DateTimeImmutable())->modify('-15 minutes');
+        if ($latest === null || $latest->getDoneAt() < $limit) {
+            $this->addFlash('error', "Trop tard pour annuler : modifie la date depuis l'édition de la tâche.");
+
+            return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+        }
+
+        $previous = null;
+        $prevRaw = (string) $request->request->get('prev', '');
+        if ($prevRaw !== '') {
+            try {
+                $previous = new \DateTimeImmutable($prevRaw);
+            } catch (\Exception) {
+                $previous = null;
+            }
+        }
+
+        $roomTask->getLogs()->removeElement($latest);
+        $this->entityManager->remove($latest);
+        $roomTask->setLastDoneAt($previous);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('« %s » : action annulée.', $roomTask->getLabel()));
+
+        return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+    }
+
+    #[Route('/room-tasks/{id}/update', name: 'app_room_task_update', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function updateTask(int $id, Request $request): Response
+    {
+        $roomTask = $this->findRoomTaskOrFail($id);
+        $room = $roomTask->getRoom();
+
+        $token = new CsrfToken('update_task', (string) $request->request->get('_csrf_token'));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $lastDoneAt = null;
+        $lastDoneAtRaw = trim((string) $request->request->get('lastDoneAt'));
+        if ($lastDoneAtRaw !== '') {
+            $lastDoneAt = \DateTimeImmutable::createFromFormat('!Y-m-d', $lastDoneAtRaw);
+            if ($lastDoneAt === false) {
+                $this->addFlash('error', 'Date de dernier nettoyage invalide.');
+
+                return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+            }
+        }
+
+        $roomTask->setFrequencyDays(max(1, (int) $request->request->get('frequencyDays', 7)));
+        $roomTask->setLastDoneAt($lastDoneAt);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('Tâche "%s" mise à jour.', $roomTask->getLabel()));
+
+        return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+    }
+
+    #[Route('/room-tasks/{id}/delete', name: 'app_room_task_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function deleteTask(int $id, Request $request): Response
+    {
+        $roomTask = $this->findRoomTaskOrFail($id);
+        $room = $roomTask->getRoom();
+
+        $token = new CsrfToken('delete_task', (string) $request->request->get('_csrf_token'));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $name = $roomTask->getLabel();
+        $this->entityManager->remove($roomTask);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('Tâche "%s" supprimée.', $name));
+
+        return $this->redirectToRoute('app_room_show', ['id' => $room->getId()]);
+    }
+
+    private function findRoomTaskOrFail(int $id): RoomTask
+    {
+        $roomTask = $this->roomTaskRepository->find($id);
+        if (!$roomTask instanceof RoomTask) {
+            throw $this->createNotFoundException('Tâche introuvable.');
+        }
+
+        $this->denyUnlessSameFoyer($roomTask->getRoom());
+
+        return $roomTask;
     }
 
     /**

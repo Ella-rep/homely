@@ -7,6 +7,7 @@ use App\Entity\Room;
 use App\Entity\RoomType;
 use App\Entity\User;
 use App\Service\CurrentFoyer;
+use App\Service\Dirtiness;
 use App\Repository\RoomRepository;
 use App\Repository\RoomTypeRepository;
 use App\Service\RoomCatalog;
@@ -41,10 +42,15 @@ final class HomeController extends AbstractController
 
         $overdueTotal = 0;
         $dueSoonTotal = 0;
+        $allTasks = [];
         foreach ($rooms as $room) {
             $overdueTotal += $room->getOverdueCount();
             $dueSoonTotal += $room->getDueSoonCount();
+            foreach ($room->getRoomTasks() as $roomTask) {
+                $allTasks[] = $roomTask;
+            }
         }
+        $urgentTask = Dirtiness::mostUrgent($allTasks);
 
         if ($overdueTotal > 0) {
             $summaryLabel = sprintf('%d tâche%s en retard', $overdueTotal, $overdueTotal > 1 ? 's' : '');
@@ -70,6 +76,7 @@ final class HomeController extends AbstractController
             'rooms' => $rooms,
             'summaryLabel' => $summaryLabel,
             'summarySub' => $summarySub,
+            'urgentTask' => $urgentTask,
             'roomTypes' => $roomTypes,
         ]);
     }
@@ -83,7 +90,7 @@ final class HomeController extends AbstractController
         }
 
         $label = trim((string) $request->request->get('name'));
-        $color = (string) $request->request->get('color', '#8AA9B8');
+        $color = (string) $request->request->get('color', '');
         $roomTypeId = (int) $request->request->get('roomTypeId', 0);
 
         if ($label === '') {
@@ -113,7 +120,8 @@ final class HomeController extends AbstractController
         $room = new Room();
         $room->setLabel($label);
         $room->setRoomType($roomType);
-        $room->setColor(preg_match('/^#[0-9A-Fa-f]{6}$/', $color) ? $color : '#8AA9B8');
+        // Couleur libre refusée : hors palette => couleur suggérée pour le type de pièce.
+        $room->setColor(RoomCatalog::canonical($color) ?? RoomCatalog::colorFor($roomType->getLabel()));
         $room->setPosition($position);
         $room->setFoyer($foyer);
 

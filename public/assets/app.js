@@ -52,6 +52,62 @@
             flash.classList.add('flash-hide');
         }, 3200);
     });
+
+    // Toast « Annuler » : visible plus longtemps (fenêtre d'annulation).
+    document.querySelectorAll('[data-toast]').forEach(function (toast) {
+        setTimeout(function () {
+            toast.classList.add('flash-hide');
+            setTimeout(function () {
+                toast.remove();
+            }, 350);
+        }, 8000);
+    });
+})();
+
+(function () {
+    // Confirmation en bottom sheet (remplace window.confirm, qui casse le
+    // thème). Usage : <form data-confirm="Message ?" data-confirm-label="Supprimer">
+    // ou window.homelyConfirm(message, label, callback).
+    var dialog = document.getElementById('confirmModal');
+    if (!dialog) {
+        return;
+    }
+    var message = document.getElementById('confirmMessage');
+    var okBtn = document.getElementById('confirmOk');
+    var pending = null;
+
+    function ask(text, label, callback) {
+        message.textContent = text;
+        okBtn.textContent = label || 'Confirmer';
+        pending = callback;
+        dialog.showModal();
+    }
+
+    okBtn.addEventListener('click', function () {
+        var callback = pending;
+        pending = null;
+        dialog.close();
+        if (callback) {
+            callback();
+        }
+    });
+    dialog.addEventListener('close', function () {
+        pending = null;
+    });
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        var text = form.getAttribute && form.getAttribute('data-confirm');
+        if (!text) {
+            return;
+        }
+        event.preventDefault();
+        ask(text, form.getAttribute('data-confirm-label'), function () {
+            form.submit();
+        });
+    });
+
+    window.homelyConfirm = ask;
 })();
 
 (function () {
@@ -70,7 +126,7 @@
     var list = wrapper.querySelector('[data-custom-select-list]');
     var options = Array.prototype.slice.call(list.querySelectorAll('[role="option"]'));
     var nameInput = document.getElementById('roomNameInput');
-    var colorInput = document.getElementById('roomColorInput');
+    var form = wrapper.closest('form');
     var typeIdInput = document.getElementById('roomTypeIdInput');
 
     function closeList() {
@@ -100,8 +156,11 @@
             nameInput.value = value;
         }
         var color = option.getAttribute('data-color');
-        if (colorInput && color) {
-            colorInput.value = color;
+        if (form && color) {
+            // Couleur proposée pour ce type de pièce : on coche la pastille correspondante.
+            form.querySelectorAll('input[name="color"]').forEach(function (radio) {
+                radio.checked = radio.value.toLowerCase() === color.toLowerCase();
+            });
         }
     }
 
@@ -213,8 +272,8 @@
     editButtons.forEach(function (btn) {
         btn.addEventListener('click', function () {
             var id = btn.getAttribute('data-task-id');
-            form.action = '/parametres/taches/' + id;
-            deleteForm.action = '/parametres/taches/' + id + '/supprimer';
+            form.action = btn.getAttribute('data-update-url') || '/parametres/taches/' + id;
+            deleteForm.action = btn.getAttribute('data-delete-url') || '/parametres/taches/' + id + '/supprimer';
             title.textContent = 'Modifier « ' + btn.getAttribute('data-task-name') + ' »';
             nameInput.value = btn.getAttribute('data-task-name') || '';
             frequencyInput.value = btn.getAttribute('data-task-frequency') || '7';
@@ -225,9 +284,47 @@
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function () {
             var taskName = nameInput.value || 'cette tâche';
-            if (window.confirm('Supprimer « ' + taskName + ' » ? Son historique de nettoyage sera aussi supprimé.')) {
+            var text = 'Supprimer « ' + taskName + ' » ? Son historique de nettoyage sera aussi supprimé.';
+            var editDialog = deleteBtn.closest('dialog');
+            if (editDialog) {
+                editDialog.close();
+            }
+            if (typeof window.homelyConfirm === 'function') {
+                window.homelyConfirm(text, 'Supprimer', function () {
+                    deleteForm.submit();
+                });
+            } else if (window.confirm(text)) {
                 deleteForm.submit();
             }
         });
     }
+})();
+
+(function () {
+    // Paramètres : modale de changement de couleur d'une pièce (palette uniquement).
+    var buttons = document.querySelectorAll('[data-open-modal="roomColorModal"]');
+    var form = document.getElementById('roomColorForm');
+    if (buttons.length === 0 || !form) {
+        return;
+    }
+    var title = document.getElementById('roomColorTitle');
+
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            form.action = btn.getAttribute('data-update-url') || '';
+            title.textContent = 'Couleur de « ' + (btn.getAttribute('data-room-name') || '') + ' »';
+            var current = (btn.getAttribute('data-room-color') || '').toLowerCase();
+            var matched = false;
+            form.querySelectorAll('input[name="color"]').forEach(function (radio) {
+                radio.checked = radio.value.toLowerCase() === current;
+                matched = matched || radio.checked;
+            });
+            if (!matched) {
+                var first = form.querySelector('input[name="color"]');
+                if (first) {
+                    first.checked = true;
+                }
+            }
+        });
+    });
 })();

@@ -1,0 +1,27 @@
+<dialog id="taskEditModal" class="sheet-dialog">
+    <form method="post" action="" class="sheet" id="taskEditForm">
+        <div class="sheet-handle"></div>
+        <h2 id="taskEditTitle">Modifier la tâche</h2>
+        <label>Nom
+            <input name="name" id="taskEditName" readonly aria-readonly="true" aria-describedby="taskEditNameHint">
+            <span class="field-hint" id="taskEditNameHint">Le nom vient du catalogue et n'est pas modifiable.</span>
+        </label>
+        <label>Fréquence (jours)
+            <input name="frequencyDays" id="taskEditFrequency" type="number" min="1" required>
+        </label>
+        <label>Dernier nettoyage
+            <input name="lastDoneAt" id="taskEditLastDone" type="date">
+        </label>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('update_task') }}">
+        <div class="sheet-actions sheet-actions-split">
+            <button type="button" class="btn btn-ghost btn-danger" id="taskEditDelete">Supprimer</button>
+            <span class="sheet-actions-spacer"></span>
+            <button type="button" class="btn btn-ghost" data-close-modal>Annuler</button>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+
+<form method="post" action="" id="taskDeleteForm" hidden>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token('delete_task') }}">
+</form>

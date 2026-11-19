@@ -7,6 +7,15 @@
     <div class="summary-eyebrow">Aujourd'hui</div>
     <div class="summary-label">{{ summaryLabel }}</div>
     <div class="summary-sub">{{ summarySub }}</div>
+    {% if urgentTask %}
+        <a class="summary-cta" href="{{ path('app_room_show', {id: urgentTask.room.id}) }}">
+            <span>
+                <span class="summary-cta-label">À faire en premier</span>
+                <span class="summary-cta-task">{{ urgentTask.label }} · {{ urgentTask.room.label }}</span>
+            </span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </a>
+    {% endif %}
 </div>
 
 {% if rooms|length == 0 %}
@@ -15,8 +24,10 @@
     <div class="room-grid">
         {% for room in rooms %}
             <a href="{{ path('app_room_show', {id: room.id}) }}" class="room-tile" style="--room-color: {{ room.color }}">
-                <span class="status-pip {{ room.status }}"></span>
-                <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
+                <span class="tile-head">
+                    <span class="room-chip">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
+                    <span class="status-badge {{ room.status }}" title="{{ status_label(room.status) }}">{{ {clean: 'À jour', due_soon: 'Bientôt', overdue: 'En retard'}[room.status] }}</span>
+                </span>
                 <span>
                     <span class="tile-name">{{ room.label }}</span><br>
                     <span class="tile-meta">{{ room.taskCount }} tâche{{ room.taskCount > 1 ? 's' : '' }}{% if room.overdueCount > 0 %} · {{ room.overdueCount }} en retard{% elseif room.dueSoonCount > 0 %} · {{ room.dueSoonCount }} bientôt{% endif %}</span>
@@ -29,7 +40,7 @@
 
 {% block fab %}
 <button type="button" class="fab" data-open-modal="roomModal" aria-label="Ajouter une pièce">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
 </button>
 
 <dialog id="roomModal" class="sheet-dialog">
@@ -62,9 +73,7 @@
         <label>Nom
             <input name="name" id="roomNameInput" required maxlength="80" placeholder="Ex : Bureau">
         </label>
-        <label>Couleur
-            <input name="color" id="roomColorInput" type="color" value="#8AA9B8">
-        </label>
+        {% include 'partials/_color_picker.html.twig' %}
         <input type="hidden" name="roomTypeId" id="roomTypeIdInput" value="">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('add_room') }}">
         <div class="sheet-actions">

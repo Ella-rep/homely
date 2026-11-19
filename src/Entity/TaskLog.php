@@ -11,6 +11,7 @@ use App\Repository\TaskLogRepository;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 
 /**
  * Historique en lecture seule des nettoyages effectués (créé uniquement par
@@ -44,9 +45,10 @@ class TaskLog
     #[Groups(['tasklog:read'])]
     private DateTimeImmutable $doneAt;
 
-    #[ORM\Column(length: 80, nullable: true)]
-    #[Groups(['tasklog:read'])]
-    private ?string $doneBy = null;
+    /** Utilisateur ayant cliqué sur « fait » (NULL si compte supprimé). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'done_by', nullable: true, onDelete: 'SET NULL')]
+    private ?User $doneBy = null;
 
     public function __construct()
     {
@@ -82,12 +84,20 @@ class TaskLog
         return $this;
     }
 
-    public function getDoneBy(): ?string
+    public function getDoneBy(): ?User
     {
         return $this->doneBy;
     }
 
-    public function setDoneBy(?string $doneBy): static
+    /** Pseudo exposé par l'API sous la clé « doneBy » (format inchangé pour le front). */
+    #[Groups(['tasklog:read'])]
+    #[SerializedName('doneBy')]
+    public function getDoneByPseudo(): ?string
+    {
+        return $this->doneBy?->getPseudo();
+    }
+
+    public function setDoneBy(?User $doneBy): static
     {
         $this->doneBy = $doneBy;
 

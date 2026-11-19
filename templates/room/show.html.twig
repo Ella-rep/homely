@@ -2,52 +2,72 @@
 
 {% block title %}{{ room.label }} · Homely{% endblock %}
 
+{% block page_id %}room{% endblock %}
+
 {% block content %}
 <div class="room-detail">
     <a href="{{ path('app_home') }}" class="back-btn" aria-label="Retour">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
     </a>
 
     <div class="room-hero" style="--room-color: {{ room.color }}">
-        <span class="tile-icon">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
-        <div class="hero-name display">{{ room.label }}</div>
-        <div class="hero-meta">{{ room.roomTasks|length }} tâche{{ room.roomTasks|length > 1 ? 's' : '' }}</div>
+        <div class="hero-top">
+            <div class="hero-id">
+                <span class="room-chip room-chip-lg">{% include 'partials/_room_icon.html.twig' with {key: room_icon_key(room.label ~ ' ' ~ room.roomType.label)} %}</span>
+                <div>
+                    <h1 class="hero-name display">{{ room.label }}</h1>
+                    <div class="hero-meta">{{ room.taskCount }} tâche{{ room.taskCount > 1 ? 's' : '' }}{% if room.taskCount > 0 %} · {{ room.cleanCount }} à jour{% endif %}</div>
+                </div>
+            </div>
+            {% if room.taskCount > 0 %}
+                <svg class="hero-ring" viewBox="0 0 64 64" width="74" height="74" role="img" aria-label="{{ room.cleanPercent }} % des tâches à jour">
+                    <circle class="ring-track" cx="32" cy="32" r="26" fill="none" stroke-width="7"/>
+                    <circle class="ring-fill" cx="32" cy="32" r="26" fill="none" stroke-width="7" stroke-linecap="round" pathLength="100" stroke-dasharray="{{ room.cleanPercent }} 100" transform="rotate(-90 32 32)"/>
+                    <text x="32" y="37" text-anchor="middle">{{ room.cleanPercent }}%</text>
+                </svg>
+            {% endif %}
+        </div>
+        {% if room.overdueCount > 0 or room.dueSoonCount > 0 %}
+            <div class="hero-badges">
+                {% if room.overdueCount > 0 %}<span class="status-badge overdue">{{ room.overdueCount }} en retard</span>{% endif %}
+                {% if room.dueSoonCount > 0 %}<span class="status-badge due_soon">{{ room.dueSoonCount }} bientôt</span>{% endif %}
+            </div>
+        {% endif %}
     </div>
 
     {% if room.roomTasks|length == 0 %}
         <p class="empty-state">Aucune tâche dans cette pièce.<br>Appuie sur + pour en ajouter une.</p>
     {% else %}
-        <div class="task-list">
-            {% for roomTask in room.roomTasks %}
-                <div class="task-card">
-                    <div class="task-top">
-                        <span class="task-name">{{ roomTask.label }}</span>
-                        <span class="due-pill {{ roomTask.status }}">{{ roomTask.dueLabel }}</span>
+        {% set groups = [
+            {key: 'overdue', title: 'En retard'},
+            {key: 'due_soon', title: 'À faire bientôt'},
+            {key: 'clean', title: 'À jour'},
+        ] %}
+        {% for group in groups %}
+            {% set items = groupedTasks[group.key] %}
+            {% if items|length > 0 %}
+                <section class="task-group" aria-labelledby="group-{{ group.key }}">
+                    <h2 class="task-group-title" id="group-{{ group.key }}"><span class="status-badge {{ group.key }}">{{ group.title }} · {{ items|length }}</span></h2>
+                    <div class="task-list">
+                        {% for roomTask in items %}
+                            {% include 'room/_task_card.html.twig' %}
+                        {% endfor %}
                     </div>
-                    <div class="progress-track">
-                        <div class="progress-fill {{ roomTask.status }}" style="width: {{ roomTask.progressPercent }}%"></div>
-                    </div>
-                    <form method="post" action="{{ path('app_task_complete', {id: roomTask.id}) }}">
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('complete_task') }}">
-                        <button type="submit" class="btn-done">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6"/></svg>
-                            C'est fait
-                        </button>
-                    </form>
-                </div>
-            {% endfor %}
-        </div>
+                </section>
+            {% endif %}
+        {% endfor %}
     {% endif %}
 
     <button type="button" class="btn btn-ghost btn-block catalog-open-btn" data-open-modal="catalogModal">
-        📖 Choisir depuis le catalogue
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
+        Choisir depuis le catalogue
     </button>
 </div>
 {% endblock %}
 
 {% block fab %}
 <button type="button" class="fab" data-open-modal="taskModal" aria-label="Ajouter une tâche">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
 </button>
 
 <dialog id="taskModal" class="sheet-dialog">
@@ -55,7 +75,7 @@
         <div class="sheet-handle"></div>
         <h2>Nouvelle tâche</h2>
         <label>Nom
-            <input name="name" required maxlength="120" placeholder="Ex : Passer l'aspirateur">
+            <input name="name" required maxlength="120" placeholder="Ex : Passer l'aspirateur" autofocus>
         </label>
         <label>Fréquence (jours)
             <input name="frequencyDays" type="number" min="1" value="7" required>
@@ -82,4 +102,5 @@
         </div>
     </form>
 </dialog>
+{% include 'room/_task_edit_modal.html.twig' %}
 {% endblock %}

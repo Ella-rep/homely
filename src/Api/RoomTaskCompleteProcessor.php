@@ -6,10 +6,13 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\RoomTask;
 use App\Entity\TaskLog;
+use App\Entity\User;
 use App\Repository\RoomTaskRepository;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Traite POST /api/room_tasks/{id}/complete : crée un TaskLog et met à jour
@@ -23,6 +26,7 @@ final class RoomTaskCompleteProcessor implements ProcessorInterface
     public function __construct(
         private readonly RoomTaskRepository $roomTaskRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
     ) {
     }
 
@@ -34,11 +38,16 @@ final class RoomTaskCompleteProcessor implements ProcessorInterface
             throw new NotFoundHttpException('Tâche introuvable.');
         }
 
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Authentification requise.');
+        }
+
         $now = new DateTimeImmutable();
 
         $log = new TaskLog();
         $log->setDoneAt($now);
-        $log->setDoneBy($data instanceof RoomTaskCompleteInput ? $data->doneBy : null);
+        $log->setDoneBy($user); // toujours l'utilisateur authentifié, jamais le corps de requête
 
         $roomTask->addLog($log);
         $roomTask->setLastDoneAt($now);

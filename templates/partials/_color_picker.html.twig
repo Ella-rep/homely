@@ -1,0 +1,15 @@
+{# Sélecteur de couleur de pièce : uniquement la palette du site (pas de couleur libre).
+   Paramètres : selected (hex, optionnel). #}
+{% set current = (selected|default(''))|upper %}
+<fieldset class="swatch-picker" data-swatch-picker>
+    <legend>Couleur</legend>
+    <div class="swatch-grid">
+        {% for label, hex in room_palette() %}
+            <label class="swatch" style="--room-color: {{ hex }}" title="{{ label }}">
+                <input type="radio" name="color" value="{{ hex }}"{% if hex == current or (current == '' and loop.first) %} checked{% endif %}>
+                <span class="swatch-dot" aria-hidden="true"></span>
+                <span class="sr-only">{{ label }}</span>
+            </label>
+        {% endfor %}
+    </div>
+</fieldset>

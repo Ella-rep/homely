@@ -2,20 +2,39 @@
 
 {% block body %}
 <div class="app-shell">
-    <div class="bg-aurora"></div>
-
     {% include 'partials/_header.html.twig' %}
 
-    <div class="content">
+    <main class="content">
         {% for label, messages in app.flashes %}
             {% for message in messages %}
-                <div class="flash flash-{{ label }}" data-flash>{{ message }}</div>
+                {% if label == 'undo' %}
+                    <form method="post" action="{{ path('app_task_undo', {id: message.id}) }}" class="toast" role="status" data-toast>
+                        <span class="toast-text">« {{ message.name }} » faite&nbsp;✓</span>
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('undo_task') }}">
+                        <input type="hidden" name="prev" value="{{ message.prev }}">
+                        <button type="submit" class="toast-btn">Annuler</button>
+                    </form>
+                {% else %}
+                    <div class="flash flash-{{ label }}" role="status" data-flash>{{ message }}</div>
+                {% endif %}
             {% endfor %}
         {% endfor %}
 
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
     {% block fab %}{% endblock %}
+
+    <dialog id="confirmModal" class="sheet-dialog" aria-labelledby="confirmTitle">
+        <div class="sheet">
+            <div class="sheet-handle"></div>
+            <h2 id="confirmTitle">Confirmer</h2>
+            <p class="confirm-message" id="confirmMessage"></p>
+            <div class="sheet-actions">
+                <button type="button" class="btn btn-ghost" data-close-modal>Annuler</button>
+                <button type="button" class="btn btn-danger-solid" id="confirmOk">Confirmer</button>
+            </div>
+        </div>
+    </dialog>
 </div>
 {% endblock %}

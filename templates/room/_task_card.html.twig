@@ -1,0 +1,28 @@
+<div class="task-card {{ roomTask.status }}">
+    <span class="task-glyph {{ roomTask.status }}" aria-hidden="true"></span>
+    <div class="task-main">
+        <div class="task-name-row">
+            <span class="task-name">{{ roomTask.label }}</span>
+            <button type="button" class="task-edit settings-task-edit" aria-label="Modifier la tâche « {{ roomTask.label }} »"
+                data-open-modal="taskEditModal"
+                data-update-url="{{ path('app_room_task_update', {id: roomTask.id}) }}"
+                data-delete-url="{{ path('app_room_task_delete', {id: roomTask.id}) }}"
+                data-task-name="{{ roomTask.label }}"
+                data-task-frequency="{{ roomTask.frequencyDays }}"
+                data-task-last-done="{{ roomTask.lastDoneAt ? roomTask.lastDoneAt|date('Y-m-d') : '' }}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+        </div>
+        <div class="task-label"><span class="sr-only">{{ status_label(roomTask.status) }} : </span>{{ roomTask.dueLabel }}</div>
+        <div class="progress-track" role="progressbar" aria-label="Avancement vers l'échéance" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ roomTask.progressPercent }}">
+            <div class="progress-fill {{ roomTask.status }}" style="width: {{ roomTask.progressPercent }}%"></div>
+        </div>
+    </div>
+    <form method="post" action="{{ path('app_task_complete', {id: roomTask.id}) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('complete_task') }}">
+        <button type="submit" class="btn-check">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6"/></svg>
+            <span class="sr-only">C'est fait : {{ roomTask.label }}</span>
+        </button>
+    </form>
+</div>
