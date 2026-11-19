@@ -2,15 +2,10 @@
 
 namespace App\Api;
 
-use Symfony\Component\Serializer\Attribute\Groups;
-use Symfony\Component\Validator\Constraints as Assert;
-
 /**
- * Corps de requête (facultatif) pour POST /api/room_tasks/{id}/complete.
+ * Corps de requête (vide) pour POST /api/room_tasks/{id}/complete :
+ * l'auteur est déduit de l'utilisateur authentifié.
  */
 final class RoomTaskCompleteInput
 {
-    #[Groups(['room_task:write'])]
-    #[Assert\Length(max: 80)]
-    public ?string $doneBy = null;
 }

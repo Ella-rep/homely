@@ -37,13 +37,13 @@
                         {% endif %}
                         {% if isOwner %}
                             <form method="post" action="{{ path('app_foyer_delete', {id: foyer.id}) }}"
-                                  onsubmit="return confirm('Supprimer définitivement « {{ foyer.name|e('js') }} » ? Les pièces, tâches et historiques seront perdus pour tous les membres.');">
+                                  data-confirm="Supprimer définitivement « {{ foyer.name }} » ? Les pièces, tâches et historiques seront perdus pour tous les membres." data-confirm-label="Supprimer">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_delete') }}">
                                 <button type="submit" class="btn btn-ghost btn-danger">Supprimer</button>
                             </form>
                         {% else %}
                             <form method="post" action="{{ path('app_foyer_leave', {id: foyer.id}) }}"
-                                  onsubmit="return confirm('Quitter « {{ foyer.name|e('js') }} » ?');">
+                                  data-confirm="Quitter « {{ foyer.name }} » ?" data-confirm-label="Quitter">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('foyer_leave') }}">
                                 <button type="submit" class="btn btn-ghost">Quitter</button>
                             </form>

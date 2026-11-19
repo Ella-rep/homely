@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Foyer;
+use App\Entity\Room;
 use App\Entity\RoomTask;
 use App\Entity\User;
 use App\Service\CurrentFoyer;
+use App\Service\RoomCatalog;
 use App\Repository\RoomRepository;
 use App\Repository\RoomTaskRepository;
 use App\Repository\UserRepository;
@@ -105,6 +107,35 @@ final class SettingsController extends AbstractController
         $this->entityManager->flush();
 
         $this->addFlash('success', sprintf('%s a été ajouté·e au foyer.', $pseudo));
+
+        return $this->redirectToRoute('app_settings');
+    }
+
+    /** Change la couleur d'une pièce du foyer actif, uniquement parmi la palette. */
+    #[Route('/parametres/pieces/{id}/couleur', name: 'app_settings_room_color', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function updateRoomColor(int $id, Request $request): Response
+    {
+        $room = $this->roomRepository->find($id);
+        if (!$room instanceof Room || $room->getFoyer()?->getId() !== $this->currentFoyer()->getId()) {
+            throw $this->createNotFoundException('Pièce introuvable.');
+        }
+
+        $token = new CsrfToken('update_room_color', (string) $request->request->get('_csrf_token'));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $color = RoomCatalog::canonical((string) $request->request->get('color', ''));
+        if ($color === null) {
+            $this->addFlash('error', 'Choisis une couleur parmi celles proposées.');
+
+            return $this->redirectToRoute('app_settings');
+        }
+
+        $room->setColor($color);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf('Couleur de « %s » mise à jour.', $room->getLabel()));
 
         return $this->redirectToRoute('app_settings');
     }

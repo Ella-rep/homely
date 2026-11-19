@@ -107,6 +107,57 @@ final class Dirtiness
     }
 
     /**
+     * Tâche la plus en retard (ratio le plus élevé) parmi celles à faire ; null si tout est à jour.
+     *
+     * @param RoomTask[] $tasks
+     */
+    public static function mostUrgent(array $tasks, ?DateTimeImmutable $now = null): ?RoomTask
+    {
+        $best = null;
+        $bestRatio = 0.0;
+
+        foreach ($tasks as $task) {
+            if (self::status($task, $now) === self::STATUS_CLEAN) {
+                continue;
+            }
+            $ratio = self::ratio($task, $now);
+            if ($best === null || $ratio > $bestRatio) {
+                $best = $task;
+                $bestRatio = $ratio;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Regroupe par statut (en retard, bientôt, à jour), chaque groupe trié du plus au moins urgent.
+     *
+     * @param RoomTask[] $tasks
+     *
+     * @return array<string, RoomTask[]>
+     */
+    public static function groupByStatus(array $tasks, ?DateTimeImmutable $now = null): array
+    {
+        $groups = [
+            self::STATUS_OVERDUE => [],
+            self::STATUS_DUE_SOON => [],
+            self::STATUS_CLEAN => [],
+        ];
+
+        foreach ($tasks as $task) {
+            $groups[self::status($task, $now)][] = $task;
+        }
+
+        foreach ($groups as &$items) {
+            usort($items, static fn (RoomTask $a, RoomTask $b): int => self::ratio($b, $now) <=> self::ratio($a, $now));
+        }
+        unset($items);
+
+        return $groups;
+    }
+
+    /**
      * @param RoomTask[] $tasks
      */
     public static function countByStatus(array $tasks, string $status, ?DateTimeImmutable $now = null): int

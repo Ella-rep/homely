@@ -118,7 +118,6 @@ final class LoadDemoDataCommand extends Command
 
                 $log = new TaskLog();
                 $log->setDoneAt($lastDoneAt);
-                $log->setDoneBy('Démo');
                 $roomTask->addLog($log);
                 $this->entityManager->persist($log);
 
